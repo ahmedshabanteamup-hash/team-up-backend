@@ -137,8 +137,9 @@ const developerSchema = new Schema(
     workHistory: [
       {
         projectTitle: { type: String, required: true, trim: true },
-        clientName: { type: String, required: true, trim: true },
         role: { type: String, required: true, trim: true },
+        deadline: { type: Date },
+        progress: { type: Number, min: 0, max: 100, default: 0 },
         duration: { type: String, default: "", trim: true },
         months: { type: Number, default: 0, min: 0 },
         status: {

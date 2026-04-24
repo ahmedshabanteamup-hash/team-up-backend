@@ -1,0 +1,227 @@
+1- (Client Dashboard Page) :þþþÿ Gþþÿ'
+.( 'þþÿN .....þþþþþþÿ' Gþþÿ þÿþÿ þþþÿ þþÿ Fþþÿ) þþþÿ þþþþÿN þþÿþþÿ þÿ7þþþÿ' þÿ þþþÿ þÿþþþÿ þþÿþþÿ' þþÿ' þþþþÿ' N/
+:(Main Components) þþÿþÿÿ' .þÿþþþÿ'
+1 Top Bar / Header
+þþþÿN .(TeamUp logo) þÿþþÿ' þþþÿ
+:þþÿþÿ .þÿþþÿ'
+Notifications
+Messages
+Settings / Logout
+2 Side Menu (Navigation
+Panel)
+.þþþþÿ' þþþÿ þþþÿ' þÿ þþÿ
+:þþÿþÿÿ'
+Dashboard (Home
+overview)
+Post New Job
+Build Team
+My Projects
+Ratings & Feedback
+Notifications
+Profile Settings
+3 Dashboard Overview
+Section
+þþÿ þþÿþþþÿ þþÿþþÿ' þÿþÿ FN' N/
+:þÿþÿ þÿ
+þþÿþþÿ' þÿ7þþþÿ' /þÿ
+þþþþÿ' .þþþþÿ' /þÿ
+Fþþÿ' þþþþÿ þÿþþÿ
+þþþÿ) .þþÿþþÿ N' .'7þþÿ' þÿ&
+.(Cards þÿ'/ Gþÿ7' þþþÿ
+(1)My Projects Section
+:þþþÿ Card ?Nþþÿ þþÿ .þþÿþÿ þþÿþþÿ' þþÿ' þÿ7þþþÿ' þÿ 6þþþÿ
+?Nþþþÿ' þÿ'
+(Active / Pending / Completed) þÿþþÿ'
+þÿþþÿ' 'þþÿ' /þÿ
+=View Project< Fþÿþÿ
+=Build Team< Fþÿþÿ
+.?Nþþþÿ' þþÿþþÿ þþþþÿ /Nþÿ ³ =View Project< þþþÿ þþÿ
+(2)Build Team Options Section
+:.'7þþþÿ' 3 þÿ þþþþÿ ?Nþþþþÿ þÿþÿ þÿþÿ FWþþÿ þÿþÿ þþþþÿ' þÿ
+Build Team Manually	1.
+Build Team with AI Helper	2.
+Auto-Suggest Full Team	3.
+.G/ 7þþþÿÿþÿ þÿþÿ þþÿþÿ þþþÿ þÿ þÿW/þÿ 7'76 þþþÿ /þÿ'N þÿ
+(3)Notifications Panel
+(=Ahmed accepted your invitation< :N6) þþþþþÿ þþÿN þþÿ' .'7þþÿÿ' þÿ& 6þþþÿ
+=View All Notifications< Fþÿþÿ þþÿ .
+.categorized (Project Updates 3 Invitations 3 System) þþþÿ þþþÿ .'7þþÿ' .
+(4)Messages / Team Chat Shortcut
+.'þþþÿ' N' Fþþÿ' þÿþÿ7 þÿ& þþÿ þþþÿ 'þÿ
+(5)Ratings & Feedback
+.?Nþþÿ þÿ þþÿ =Rate Team Performance< þþþÿ 7þþÿ .Gþþÿ þþþÿ' þÿþÿ þþÿ þÿþþþþþÿ 6þþþÿ
+(6)Profile / Settings
+Two-Factor þ Wþþÿ N' /7þÿþþÿ' þWþþÿ 7þþÿ .PayPal N' þþþþÿ' þÿþþÿ þÿþÿ 7þþÿ .(contact info /7þÿ þÿ') þþþþþÿ' þÿþÿþþÿ FWþþÿ 7þþÿ
+.Login
+(Logic) þþÿþÿþÿN' þþþþþÿ þþÿ' þÿþÿþÿ'
+.Database (projects, teams, notifications)Fÿ' þÿ þÿ'þÿ' þÿ þþþþÿ Gþþþÿ'
+.þÿþþþÿ /WþþþÿN þWþþþþÿ (Rate Team N' Build Team N6) þþþþÿ þÿ
+.N7þÿ Notification ³ (/þÿþÿ' þÿ7 developer N6) þÿþþÿ þþÿ þÿ
+
+-- 1 of 5 --
+
+2- (Developer Dashboard Page)
+1. Header Section
+þÿ'7þþÿ' + 7þþþÿ' þÿ þþÿþÿ .þÿþþþÿ þþÿ þþþÿ :Gþþÿ'
+(&Frontend, Backend, AI) þþþþÿ' + þÿÿ' + þÿþÿNþþÿ' /7þÿ
+Notifications Icon (/þÿþþÿ' .'7þþÿÿ' /þþÿ)
+Settings Icon
+Shortcut FþÿMessages
+N/þÿ þÿþþÿ Gþþÿ' þÿþÿNþÿ þþþÿ =View Profile< Fþÿþÿ
+2. Quick Stats Overview (Cards Section)
+.þÿþþÿ þÿþÿ þÿ þþÿþÿ þþþÿ :Gþþÿ'
+5
+Active Projects
+þþÿþÿ/ þþþÿ Fþþÿ þþÿ' þÿ7þþþÿ' /þÿ
+12
+Completed Projects
+þþþþÿ þþÿ' þÿ7þþþÿ' /þÿ
+4.8
+Average Rating
+þÿþþþþþÿ þÿþþÿ
+3. Job Invitations Section
+'þþÿ þÿ þþÿþÿ þþÿ' .'þÿþÿ' þÿ Gþþÿ :Gþþÿ'
+:þþþÿ /þÿ/ þþÿ Card Fþþþÿ
+þÿþþþÿ' þþþÿ' + .þþþÿ þþþÿ + ?Nþþþÿ' þÿ'
+þþþþþÿ + þþþþÿ' þÿ'
+: Fþÿþÿ þþþÿ'
+'	
+<View Proposal Request=
+o	
+<Decline Invitation=
+<View Proposal Request= þÿ þþÿ 7þþþÿ' þÿ
+<Send Proposal= Fþÿþÿ + ?Nþþþþÿ þþÿþþÿ' þþÿþþþÿ' þþþÿ /þÿþÿ þÿ þþþÿ
+4. Completed Projects Section
+.þÿþþþþþÿ + Gþÿ þþÿ þþþÿ þþÿ' þþþÿ' Gþþÿ :Gþþÿ'
+:?Nþþÿ þþÿ Card Fþþþÿ
+7þþþþÿ þþþþþÿ + þþþþÿ' þÿ'
+Feedback .þþþÿ
+?Nþþþÿ' þþÿþþÿ þþþÿ =View Report< Fþÿþÿ
+
+-- 2 of 5 --
+
+3- (Company Dashboard Page)
+1. Header Section
+:þÿþþÿ' þþþþÿ' + þþþþÿþÿ' þÿþþÿ' .þÿþþÿ 6þÿ :Gþþÿ'
+Logo þþÿþÿ + þþþÿ' + þÿþþÿ' (Startup / Software House / Agency)
+Notifications Icon (.þÿþþÿ þÿþÿ7 þÿþÿN)
+Settings Icon
+=Messages< Fþÿþÿ
+=Company Profile< Fþÿþÿ
+2. Job Postings Management
+:þþþÿþÿ þÿþþÿ' þþÿ' þÿþÿþÿ' /7'/' :Gþþÿ'
+=Post New Job< Fþÿþÿ
+:þþÿþþÿ' þÿþÿþÿþÿ þþÿ
+(Full-Time / Part-Time / Freelance) þþÿþÿ + þþþÿþÿ' þÿ'
+(Skills Tags) þÿþþþþÿ' .'7þþþÿ'
+þþÿWþþþþÿ' /þÿ
+(Open / Closed) þþþÿþÿ' þÿþÿ
+: þÿþÿþþÿ'
+Edit
+Delete
+View Applicants
+3. Applicants List
+:þþþÿN Nÿ þþÿWþþþþÿ' 6'þþþÿ' :Gþþÿ'
+Search & Filter:
+Skill / Rank / ExperienceFÿ' þþÿ
+Card GWþþþÿ þþÿ:
+Rating + þþþþÿ + þþÿ'
+CV / Portfolio link
+=View Profile< Fþÿþÿ
+4. Notifications Center
+..þþÿþþþÿ' þÿ& 6þÿ :Gþþÿ'
+:þþþÿ'
+<John Doe accepted your interview request.=
+<New applicant for your AI Developer post.=
+<Job post »Frontend Engineer¼ expired.=
+
+-- 3 of 5 --
+
+4- (Admin Dashboard Page)
+1. Header Section
+þþþÿ .'7þþÿ' + þþÿþÿ /7'/' :Gþþÿ'
+Admin Name + Role ("Super Admin")
+Notifications Icon (system alerts, reports, feedback flags)
+Global Search Bar (þÿþÿ Nþÿ þþþÿ 7þþÿ: user, job, project ID)
+Settings Icon
+Logout Button
+2. Quick Overview Cards
+Gþþþÿ' þÿþþÿ þÿþÿ Snapshot :Gþþÿ'
+Total Users
+Clients +) þþÿþþþþþÿ' þÿ /þÿ
+(Devs + Companies
+Active Developers
+þþþþþþÿ' 6þÿþþþþÿþÿ' /þÿ
+Active Projects
+þOþÿþÿ þÿþþÿ þþÿ' þÿ7þþþÿ'
+Total Transactions
+þþÿþþÿ' .þþþþþÿ' þÿþþÿ'
+Reports / Spam Flags
+þÿþþþþÿ' .þÿþþÿ'
+3. User Management Section
+.þÿþþÿþÿ þþÿþþþþþÿ' .þÿþþÿ þÿ þþþþÿ' :Gþþÿ'
+Search + Filter by Role (Client / Developer / Company)
+:þþþÿ Card Gþþþþÿ þþÿ
+(þÿþþþþÿ/ þÿ) þþÿþÿ' + þþþÿÿ' + þÿÿ'
+(Active / Suspended) þÿþþÿ'
+:þÿþÿþÿ
+View Profile
+Edit
+\	
+Suspend / I Delete
+¦	
+Warning Counter (ONþþþÿ' /þÿ /'6 þÿ / feedback þþþþÿ')
+4. Feedback & Reports Moderation
+:.þÿþÿÿ'N .þÿþþþÿþÿ' þþÿþþÿ :Gþþÿ'
+/þÿþþÿ' feedbacksFÿþÿ þþÿþÿ
+=Keep Normal< N' =Mark as Spam< 76
+³ þÿþþÿ' þWþþÿ þÿ/ÿ' þþÿ
+System Log ("Admin X marked feedback #123 as spam") þÿ þþþþÿ
+=View Feedback Details< 76
+
+-- 4 of 5 --
+
+5- (Team Leader Dashboard Page)
+1. Header Section
+.?Nþþþÿ'N þÿþþÿ' þÿ þþÿþÿ .þÿþþÿ 6þÿ :Gþþÿ'
+þþþþÿ' + ?Nþþþÿ' /þÿ + ?Nþþþÿ' þÿ'
+(Active / Pending / Completed) ?Nþþþÿ' þÿþÿ
+þÿ7þÿN Team LeaderFÿ' þÿ'
+Notifications (þþÿ þþÿ þþÿ N' þþþÿ þÿþþÿ N6)
+Settings (þþþÿ' .'/'þÿ' þþþÿ)
+2. Team Overview
+þÿþþÿþÿ þÿþþÿ' 6þÿ :Gþþÿ'
+Grid þÿþþÿ' 'þþÿ' þÿ þþþÿ:
+Role (Frontend / Backend / AI / UI / Embedded) + þÿ' + /7þÿ
+Rank Badge (Silver / Gold / Platinum / Top)
+Status (Online / Offline / Busy)
+þþÿ þÿ þÿ =View Profile< Fþÿþÿ
+(Fþþþÿ' N' þÿþÿ' þÿþÿ þÿ) =Replace Member< Fþÿþÿ
+3. Task Management Section
+þÿþþÿ' Gþþÿ /7'/' :Gþþÿ'
+=Add New Task< Fþÿþÿ
+:þþþÿ Card þÿþÿ þþÿ
+Task Title + Assigned To + Deadline
+Status Dropdown (To Do / In Progress / Done / Rejected)
+Priority (Low / Medium / High)
+:Fþÿþÿ
+Edit
+Approve
+Reject
+4. Task Evaluation & Feedback
+þþÿ þÿ ''/' þþþþÿ :Gþþÿ'
+:þþþþÿ þÿþÿ þÿ þþÿ
+{	
+Rating (5Fÿ 1 þÿ)
+J	
+Comment box (feedback þÿþÿ)
+.þþÿþþÿþÿ' þÿþÿNþÿ þÿ þþþÿN Gþþþÿ' þÿ þþþþÿ
+5. Team Notifications
+..þþÿþþþÿ' þÿ þþÿþþÿ :Gþþÿ'
+:þþþÿ'
+<Ahmed finished Task #14.=
+<Sara¾s task was rejected.=
+<Team reached 80% completion.=
+
+-- 5 of 5 --
+

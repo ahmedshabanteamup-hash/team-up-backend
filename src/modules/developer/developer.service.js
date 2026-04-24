@@ -2,7 +2,9 @@ import * as dbService from "../../DB/db.service.js";
 import { developerModel } from "../../DB/models/developer.model.js";
 import { roleEnum, userModel } from "../../DB/models/user.model.js";
 import { ratingModel } from "../../DB/models/rating.model.js";
-import { projectModel } from "../../DB/models/project.model.js";
+import { jobModel } from "../../DB/models/jop.model.js";
+import { applicationModel } from "../../DB/models/application.model.js";
+import { billingHistoryModel } from "../../DB/models/billingHistory.model.js";
 import { asyncHandeler, successResponse } from "../../utils/response.js";
 import { compareHash, generateHash } from "../../utils/security/hash.security.js";
 
@@ -73,6 +75,48 @@ const buildRankProgress = async (developerId, skillsCount = 0) => {
   };
 };
 
+const buildRecommendedJobs = async ({ skills = [], developerId }) => {
+  const skillList = (skills || []).map((item) => item.toLowerCase());
+
+  const existingApplications = await applicationModel.find({ developer: developerId }).select("job");
+  const appliedJobIds = existingApplications.map((item) => item.job);
+
+  const activeJobs = await jobModel
+    .find({
+      status: "active",
+      _id: { $nin: appliedJobIds },
+    })
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+  const scoredJobs = activeJobs
+    .map((job) => {
+      const jobSkills = (job.skills || []).map((item) => item.toLowerCase());
+      const matchedSkills = jobSkills.filter((item) => skillList.includes(item));
+
+      return {
+        job,
+        matchedScore: matchedSkills.length,
+      };
+    })
+    .filter((item) => item.matchedScore > 0)
+    .sort((a, b) => b.matchedScore - a.matchedScore)
+    .slice(0, 10)
+    .map((item) => ({
+      jobId: item.job._id,
+      jobTitle: item.job.title,
+      requiredSkills: item.job.skills || [],
+      budget: {
+        min: item.job.budgetMin,
+        max: item.job.budgetMax,
+      },
+      matchedSkillsCount: item.matchedScore,
+      status: item.job.status,
+    }));
+
+  return scoredJobs;
+};
+
 export const getMyProfile = asyncHandeler(async (req, res, next) => {
   if (!ensureDeveloperRole(req, next)) return;
 
@@ -106,41 +150,66 @@ export const getDeveloperDashboard = asyncHandeler(async (req, res, next) => {
     profile.rankPoints = rankProgress.points;
   }
 
-  const autoWorkHistory = await ratingModel
+  const applications = await applicationModel
     .find({ developer: req.user._id })
-    .populate([{ path: "project", select: "title status" }, { path: "client", select: "email" }])
-    .sort({ createdAt: -1 })
-    .limit(10);
+    .populate([{ path: "job", select: "title budgetMin budgetMax status" }])
+    .sort({ createdAt: -1 });
 
-  const mappedAutoHistory = autoWorkHistory.map((item) => ({
-    projectTitle: item.project?.title || "Unknown Project",
-    clientName: item.client?.email || "Unknown Client",
-    role: profile.title || "Developer",
-    duration: "",
-    months: 0,
-    status: item.project?.status === "completed" ? "completed" : "ongoing",
-    rating: item.overall || 0,
-    source: "rating",
-  }));
+  const activeWork = (profile.workHistory || [])
+    .filter((item) => item.status === "ongoing")
+    .map((item) => ({
+      projectName: item.projectTitle,
+      deadline: item.deadline || null,
+      progress: item.progress || 0,
+      status: item.status,
+    }));
+
+  const recommendedJobs = await buildRecommendedJobs({
+    skills: profile.skills || [],
+    developerId: req.user._id,
+  });
+
+  const earningsAgg = await billingHistoryModel.aggregate([
+    { $match: { user: req.user._id, status: "paid" } },
+    {
+      $group: {
+        _id: "$user",
+        total: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const totalEarnings = earningsAgg[0]?.total || 0;
 
   return successResponse({
     res,
     message: "developer dashboard fetched successfully",
     data: {
+      header: {
+        profilePicture: profile.profilePicture?.url || "",
+        developerName: profile.fullName,
+        role: profile.title || profile.specialization || "Developer",
+        rank: profile.rank,
+      },
+      quickStats: {
+        activeProjects: activeWork.length,
+        appliedProjects: applications.length,
+        totalEarnings,
+        currentRank: profile.rank,
+      },
+      activeWork,
+      applications: applications.map((item) => ({
+        applicationId: item._id,
+        projectName: item.job?.title || "Unknown Job",
+        proposedBudget: item.proposedBudget,
+        status: item.status,
+      })),
+      recommendedJobs,
+      performance: {
+        averageRating: rankProgress.performanceScore,
+        completedProjects: rankProgress.completedProjects,
+      },
       profile,
-      skills: profile.skills || [],
-      portfolio: profile.portfolio || [],
-      workHistory: {
-        manual: profile.workHistory || [],
-        auto: mappedAutoHistory,
-      },
-      rankProgress,
-      availabilitySettings: {
-        workingHours: profile.workingHours || "",
-        preferredJobTypes: profile.preferredJobTypes || [],
-        salaryExpectation: profile.salaryExpectation || "",
-        acceptingNewProjects: profile.acceptingNewProjects,
-      },
     },
   });
 });
@@ -416,8 +485,9 @@ export const addWorkHistoryItem = asyncHandeler(async (req, res, next) => {
 
   const {
     projectTitle,
-    clientName,
     role,
+    deadline = null,
+    progress = 0,
     duration = "",
     months = 0,
     status = "completed",
@@ -431,8 +501,9 @@ export const addWorkHistoryItem = asyncHandeler(async (req, res, next) => {
       $push: {
         workHistory: {
           projectTitle,
-          clientName,
           role,
+          deadline,
+          progress,
           duration,
           months,
           status,
@@ -458,7 +529,7 @@ export const getWorkHistory = asyncHandeler(async (req, res, next) => {
 
   const autoWorkHistory = await ratingModel
     .find({ developer: req.user._id })
-    .populate([{ path: "project", select: "title status" }, { path: "client", select: "email" }])
+    .populate([{ path: "project", select: "title status" }])
     .sort({ createdAt: -1 })
     .limit(20);
 
@@ -468,8 +539,9 @@ export const getWorkHistory = asyncHandeler(async (req, res, next) => {
       manual: profile.workHistory || [],
       auto: autoWorkHistory.map((item) => ({
         projectTitle: item.project?.title || "Unknown Project",
-        clientName: item.client?.email || "Unknown Client",
         role: profile.title || "Developer",
+        deadline: null,
+        progress: item.project?.status === "completed" ? 100 : 0,
         duration: "",
         months: 0,
         status: item.project?.status === "completed" ? "completed" : "ongoing",
@@ -502,6 +574,94 @@ export const getRankProgress = asyncHandeler(async (req, res, next) => {
       rankProgress,
       profile: updatedProfile,
     },
+  });
+});
+
+export const applyToJob = asyncHandeler(async (req, res, next) => {
+  if (!ensureDeveloperRole(req, next)) return;
+
+  const { jobId } = req.params;
+  const { proposedBudget } = req.body;
+
+  const job = await dbService.findOne({
+    model: jobModel,
+    filter: { _id: jobId, status: "active" },
+  });
+
+  if (!job) {
+    return next(new Error("job not found", { cause: 404 }));
+  }
+
+  const exists = await dbService.findOne({
+    model: applicationModel,
+    filter: { developer: req.user._id, job: jobId },
+  });
+
+  if (exists) {
+    return next(new Error("application already exists", { cause: 409 }));
+  }
+
+  const [application] = await dbService.create({
+    model: applicationModel,
+    data: [
+      {
+        developer: req.user._id,
+        job: jobId,
+        company: job.company,
+        proposedBudget,
+      },
+    ],
+  });
+
+  await jobModel.updateOne({ _id: jobId }, { $inc: { applicationsCount: 1 } });
+
+  return successResponse({
+    res,
+    status: 201,
+    message: "application submitted successfully",
+    data: { application },
+  });
+});
+
+export const getMyApplications = asyncHandeler(async (req, res, next) => {
+  if (!ensureDeveloperRole(req, next)) return;
+
+  const applications = await applicationModel
+    .find({ developer: req.user._id })
+    .populate([{ path: "job", select: "title budgetMin budgetMax" }])
+    .sort({ createdAt: -1 });
+
+  return successResponse({
+    res,
+    data: {
+      applications: applications.map((item) => ({
+        applicationId: item._id,
+        projectName: item.job?.title || "Unknown Job",
+        proposedBudget: item.proposedBudget,
+        status: item.status,
+        budgetRange: {
+          min: item.job?.budgetMin,
+          max: item.job?.budgetMax,
+        },
+      })),
+    },
+  });
+});
+
+export const getRecommendedJobs = asyncHandeler(async (req, res, next) => {
+  if (!ensureDeveloperRole(req, next)) return;
+
+  const profile = await getDeveloperProfileOrThrow(req.user._id, next);
+  if (!profile) return;
+
+  const jobs = await buildRecommendedJobs({
+    skills: profile.skills || [],
+    developerId: req.user._id,
+  });
+
+  return successResponse({
+    res,
+    data: { jobs },
   });
 });
 

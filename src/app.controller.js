@@ -11,6 +11,7 @@ import projectController from "./modules/projects/project.controller.js";
 import ratingController from "./modules/rating/rating.controller.js";
 import companyController from "./modules/companyProfile/company.controller.js";
 import landingController from "./modules/landing/landing.controller.js";
+import aiController from "./modules/ai/ai.controller.js";
 import connectDB from "./DB/connection.db.js";
 import { globalErorrHandeling } from "./utils/response.js";
 import cors from "cors";
@@ -34,6 +35,7 @@ const bootsrap = async () => {
   app.use("/rating", ratingController);
   app.use("/company", companyController);
   app.use("/landing", landingController);
+  app.use("/ai", aiController);
 
   app.all("{/*dummy}", (req, res, next) =>
     res.status(404).json({ message: "not valid routing" })

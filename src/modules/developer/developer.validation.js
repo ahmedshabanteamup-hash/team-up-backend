@@ -106,8 +106,9 @@ export const addWorkHistoryItem = {
   body: joi
     .object({
       projectTitle: joi.string().min(2).required(),
-      clientName: joi.string().min(2).required(),
       role: joi.string().min(2).required(),
+      deadline: joi.date().optional(),
+      progress: joi.number().min(0).max(100).optional(),
       duration: joi.string().allow("").optional(),
       months: joi.number().min(0).optional(),
       status: joi.string().valid("ongoing", "completed").optional(),
@@ -123,6 +124,19 @@ export const updateAvailability = {
       preferredJobTypes: joi.array().items(joi.string().valid(...jobTypeEnum)).optional(),
       salaryExpectation: joi.string().max(100).allow("").optional(),
       acceptingNewProjects: joi.boolean().optional(),
+    })
+    .required(),
+};
+
+export const applyToJob = {
+  params: joi
+    .object({
+      jobId: generalFields.id.required(),
+    })
+    .required(),
+  body: joi
+    .object({
+      proposedBudget: joi.number().min(0).required(),
     })
     .required(),
 };

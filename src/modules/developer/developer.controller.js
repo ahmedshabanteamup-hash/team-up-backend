@@ -10,6 +10,8 @@ router.get("/profile", authentication(), developerservice.getMyProfile);
 router.get("/dashboard", authentication(), developerservice.getDeveloperDashboard);
 router.get("/work-history", authentication(), developerservice.getWorkHistory);
 router.get("/rank-progress", authentication(), developerservice.getRankProgress);
+router.get("/applications", authentication(), developerservice.getMyApplications);
+router.get("/recommended-jobs", authentication(), developerservice.getRecommendedJobs);
 
 router.post(
   "/profile",
@@ -72,6 +74,13 @@ router.post(
   authentication(),
   validation(validators.addWorkHistoryItem),
   developerservice.addWorkHistoryItem
+);
+
+router.post(
+  "/jobs/:jobId/apply",
+  authentication(),
+  validation(validators.applyToJob),
+  developerservice.applyToJob
 );
 
 router.patch(

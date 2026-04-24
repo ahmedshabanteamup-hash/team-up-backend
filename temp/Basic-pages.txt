@@ -1,0 +1,164 @@
+1. Home Page
+:þþþÿ þþþÿ þþþÿ þÿ'þÿ .þþÿþþÿ þÿþþÿ' þÿþÿ UserF' þÿ FN' þþÿ' þþþþÿ' N/
+Header þþÿ Navbar (Home 3 About 3 Login 3 Register).
+Section þÿþþÿþÿ þþÿþþÿ:
+.TeamUp 7þþÿ
+=..A platform that helps you easily build your entire team for your project< : þÿþþÿ' þþþþþÿ
+Two Buttons :
+" Client "
+<Developer=
+.(showcase N6) Top Developers N Featured Teams þþÿ 'þÿ
+
+-- 1 of 10 --
+
+Home Page Showcase Sections
+: ((Cards) N6 þþþþÿ) þþÿþþÿ /þþÿ'
+Featured Teams Section
+.þþÿþÿ þÿ7þþÿ þþþþÿ' þÿþÿ Fþÿ 4 N' 3 O þþÿ 6þþþÿ
+:þþÿ card þÿ
+TeamF' þÿ'
+(Web, AI, Mobile :O þþÿ) G'þþÿ'
+(4.9 { ) þþþþþþÿ
+" View Team" <== button N
+þþÿþþÿ ?Nþþþÿ' 7þþÿ N' þþþþÿ /7þÿ
+Top Developers Section
+þÿþþÿ þÿþÿ þÿþÿ' þÿ 6þÿþþþÿ/ þþÿ' 6þþþÿ
+:þþÿ þÿ'N þÿ ?þþÿ CardF'
+þþþþþÿ' /7þþÿ'
+þÿÿ'
+(Silver / Gold / Platinum / Top) þÿ'7þÿ'
+G'þþÿ'
+þþþþþÿ'
+" View profile" <== button N
+Footer
+
+-- 2 of 10 --
+
+2. Login / Register Page
+.Tabs (Client / Developer / Company / Admin) þþþÿ /þÿ'N N' .þþÿ þþþÿ'
+:þÿþÿ þþþþþÿ þþÿþþÿ þÿþÿ ?þÿ þÿ
+Client / Developer / Company N/þÿ þWþþÿ.
+Admin login þþþþÿ restricted (þþþþþÿ þÿþÿ þÿ).
+:Fþþÿ Fþþþÿ'
+Email 3 Password 3 Confirm Password 3 Role 3 Skills (þÿ Developer).
+.Login / Sign up 7'76
+Forgot Password link.
+3. Dashboard (76þÿ þþÿ):
+:þþþþþÿ Dashboard þþÿ 76þÿ þÿ
+
+-- 3 of 10 --
+
+Client Dashboard
+Client Dashboard-1
+:þÿ'þÿ
+Job Posting
+.=Post New Job< Fþÿþÿ
+Project List
+Active 3) þþþþÿ þþÿ' þÿ7þþþÿþÿ þþÿ
+.(Completed
+Team Building
+Gþþþþþÿ' þÿþÿ) =Build Team< Fþÿþÿ
+N' Help Ai ). .' þþþÿ' .þþÿ þÿ
+.(Auto N' Manually
+Communication
+Notifications section.
+Messages (Chat þþÿþÿ' þþÿN þþþÿ).
+Performance & Settings
+Team Performance tab (Fþþÿ
+.þþþþþþÿ' Gþþÿ).
+Settings (/7þÿþþÿ' 3 þÿþÿNþþÿ' þÿþþÿ
+/7þþÿ' 3).
+
+-- 4 of 10 --
+
+Developer Dashboard
+2-Developer Dashboard
+:þÿ'þÿ
+Job Opportunities
+.(Apply) þÿþþþÿ' Job PostsFÿ' þþÿ
+Active Projects
+Projects tab (þþþÿ Fþþÿ þþÿ' þÿ7þþþÿ').
+Collaboration
+Team Chat.
+Support
+AI Assistant tab (þÿ/ .þþþÿ þÿ Gþÿþþÿ).
+Career Progression
+Rank Progress bar (þÿþþÿ Gþþþÿ'N þÿþþÿ' þÿ'þÿ' þþþÿ ).
+Profile Management
+Profile Management (Fþþÿ Skills þÿþÿ CV Portfolio).
+Alerts
+Notifications (þÿ7 Fþþÿ .'þÿ/).
+
+-- 5 of 10 --
+
+Company Dashboard
+3-Company Dashboard
+:þÿ'þÿ
+.=Post Hiring Job< Fþÿþÿ
+.( þþÿþþþþÿ' þþÿþÿ') ApplicantsFÿþÿ þþÿ
+.=Schedule Interview< Fþÿþÿ
+Developer Profiles browser.
+Job Status tab (Open / Closed / Interview stage).
+Settings (Company info + HR account).
+
+-- 6 of 10 --
+
+Admin Dashboard
+4-Admin Dashboard
+Tabs:
+User Management Project Overview Feedback Moderation
+Payment & Banking System Logs
+.Actions (Edit / Suspend / Delete) þÿþÿþÿ + .þÿþþÿ þþþÿ (DataTables) FNþÿ þþþÿ /þÿ'N þÿ
+.þÿþþþÿ Gþþÿ' ''/ÿ' þÿþÿ þþþþÿ Charts N
+5-(Public Pages)
+0
+6,000
+12,000
+18,000
+Active Users Completed Projects New Registrations
+
+-- 7 of 10 --
+
+Public Pages
+4. About Page
+TeamUp Vision & Mission.
+.(LinkedIn links + 7þÿ) þþþÿ'
+
+-- 8 of 10 --
+
+Contact and Exploration
+5. Contact Us Page
+.þÿþÿþÿ' 3 þþþÿÿ' 3 þÿÿ' :þþþÿ þþþþÿ G7þÿ
+.(email 3 LinkedIn 3 GitHub) þÿ'þþÿ' .þþþþÿ N'
+6. Explore Teams / Developers Page
+Search bar.
+Filters (Skill / Rank / Availability).
+:þþþÿ Team N' Developer þþÿ Card N
+þÿÿ'
+þÿ'þÿ'
+G'þþÿ'
+þÿþÿ'
+=View Profile< Fþÿþÿ
+Contact Form:
+Name
+Email
+Message
+Send
+Social Links:
+Email
+LinkedIn
+GitHub
+
+-- 9 of 10 --
+
+Profile Page
+Profile Page (676þþÿ' þþÿ)
+.þÿ'þÿ' + þÿÿ' + /7þþÿ'
+.þÿþÿ
+Skills tags.
+Projects history.
+Ratings & Feedback.
+.=Invite / Apply / Message< Fþÿþÿ
+
+-- 10 of 10 --
+
