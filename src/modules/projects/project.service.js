@@ -1,5 +1,7 @@
 import { projectModel } from "../../DB/models/project.model.js";
 import { jobModel } from "../../DB/models/jop.model.js";
+import { applicationModel } from "../../DB/models/application.model.js";
+import { ratingModel } from "../../DB/models/rating.model.js";
 import * as dbService from "../../DB/db.service.js";
 import { asyncHandeler, successResponse } from "../../utils/response.js";
 import { roleEnum, userModel } from "../../DB/models/user.model.js";
@@ -54,12 +56,17 @@ const buildProjectProgress = (project) => {
   const tasks = project.tasks || [];
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.status === "done").length;
+  const inProgressTasks = tasks.filter((task) => task.status === "in-progress").length;
+  const todoTasks = tasks.filter((task) => task.status === "todo").length;
   const progressPercent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
   return {
     progressPercent,
     completedTasks,
     totalTasks,
+    inProgressTasks,
+    todoTasks,
+    progressText: `${completedTasks}/${totalTasks} tasks`,
     currentStage: project.currentStage || "Planning",
   };
 };
@@ -96,14 +103,29 @@ const sortTasksForLeader = (tasks = []) => {
   });
 };
 
+const formatTaskPriority = (priority = "") => {
+  if (priority === "high") return "High Priority";
+  if (priority === "medium") return "Medium";
+  return "Low";
+};
+
+const formatTaskStatus = (status = "") => {
+  if (status === "in-progress") return "In Progress";
+  if (status === "done") return "Done";
+  return "To Do";
+};
+
 const normalizeJobPostPayload = (body) => {
   const {
     title,
     description,
     skills,
+    teamSize,
     budget,
+    deadline,
     estimatedDuration,
     workType,
+    priority,
     workMode = "remote",
   } = body;
 
@@ -113,14 +135,88 @@ const normalizeJobPostPayload = (body) => {
     title,
     description,
     skills,
+    teamSize,
     budget,
     budgetMin: budget,
     budgetMax: budget,
+    deadline,
     estimatedDuration,
     workType,
+    priority,
     type: normalizedType,
     workMode,
   };
+};
+
+const formatJobPostPayload = (job) => ({
+  jobId: job._id,
+  title: job.title,
+  description: job.description,
+  skills: job.skills || [],
+  teamSize: job.teamSize,
+  budget: job.budget,
+  deadline: job.deadline,
+  estimatedDuration: job.estimatedDuration || "",
+  workType: job.workType,
+  priority: job.priority || "medium",
+  workMode: job.workMode,
+  type: job.type,
+  status: job.status,
+  publicationStatus: job.publicationStatus || "published",
+  createdAt: job.createdAt,
+  updatedAt: job.updatedAt,
+});
+
+const mapJobStatusLabel = (status) => (status === "closed" ? "Closed" : "Open");
+
+const formatMyJobCard = (job) => ({
+  jobId: job._id,
+  title: job.title,
+  status: job.status,
+  statusLabel: mapJobStatusLabel(job.status),
+  publicationStatus: job.publicationStatus || "published",
+  applicantsCount: job.applicationsCount || 0,
+  workType: job.workType,
+  budget: job.budget,
+  deadline: job.deadline,
+  createdAt: job.createdAt,
+  actions: {
+    canViewDetails: true,
+    canEdit: true,
+    canDelete: true,
+  },
+});
+
+const assertClientRole = ({ req, next, actionLabel = "access this endpoint" }) => {
+  if (req.user.role !== roleEnum.client) {
+    next(new Error(`only client can ${actionLabel}`, { cause: 403 }));
+    return false;
+  }
+
+  return true;
+};
+
+const getClientJobOrThrow = async ({ jobId, userId, publicationStatus, next }) => {
+  const filter = {
+    _id: jobId,
+    company: userId,
+  };
+
+  if (publicationStatus) {
+    filter.publicationStatus = publicationStatus;
+  }
+
+  const job = await dbService.findOne({
+    model: jobModel,
+    filter,
+  });
+
+  if (!job) {
+    next(new Error("job not found or not owned by current client", { cause: 404 }));
+    return null;
+  }
+
+  return job;
 };
 
 export const createProject = asyncHandeler(async (req, res, next) => {
@@ -179,6 +275,12 @@ export const getProjectDetailsForDeveloper = asyncHandeler(async (req, res, next
   if (!project) return;
 
   const progress = buildProjectProgress(project);
+  const isOwner = String(project.client) === String(req.user._id);
+  const formatTaskStatus = (status) => {
+    if (status === "in-progress") return "In Progress";
+    if (status === "done") return "Done";
+    return "To do";
+  };
 
   return successResponse({
     res,
@@ -187,6 +289,7 @@ export const getProjectDetailsForDeveloper = asyncHandeler(async (req, res, next
       header: {
         projectName: project.title,
         projectStatus: project.status,
+        projectStatusLabel: project.status === "ongoing" ? "Active" : project.status,
         clientName: project.clientName || "",
         deadline: project.deadline,
       },
@@ -196,6 +299,10 @@ export const getProjectDetailsForDeveloper = asyncHandeler(async (req, res, next
         developerRole: project.developerRole || "",
         startDate: project.startDate,
         deadline: project.deadline,
+        timelineText:
+          project.startDate && project.deadline
+            ? `${new Date(project.startDate).toDateString()} - ${new Date(project.deadline).toDateString()}`
+            : "",
       },
       teamMembers: (project.teamMembers || []).map((member) => ({
         memberId: member._id,
@@ -210,9 +317,12 @@ export const getProjectDetailsForDeveloper = asyncHandeler(async (req, res, next
         taskTitle: task.title,
         description: task.description,
         priority: task.priority,
+        assignedToUserId: task.assignedTo,
         assignedTo: task.assignedToName,
         deadline: task.deadline,
         status: task.status,
+        statusLabel: formatTaskStatus(task.status),
+        canUpdateStatus: isOwner || String(task.assignedTo) === String(req.user._id),
       })),
       chatMessages: (project.chatMessages || []).map((msg) => ({
         messageId: msg._id,
@@ -228,6 +338,9 @@ export const getProjectDetailsForDeveloper = asyncHandeler(async (req, res, next
         createdAt: resource.createdAt,
       })),
       progress,
+      actions: {
+        canAddTask: isOwner,
+      },
     },
   });
 });
@@ -250,9 +363,14 @@ export const getLeaderDashboard = asyncHandeler(async (req, res, next) => {
     title: task.title,
     description: task.description,
     priority: task.priority,
+    priorityLabel: formatTaskPriority(task.priority),
     status: task.status,
+    statusLabel: formatTaskStatus(task.status),
     assignedTo: task.assignedToName,
+    assignedToUserId: task.assignedTo,
     deadline: task.deadline,
+    canUpdateStatus: true,
+    canReassign: true,
   }));
 
   return successResponse({
@@ -262,7 +380,13 @@ export const getLeaderDashboard = asyncHandeler(async (req, res, next) => {
       header: {
         projectName: project.title,
         projectStatus: project.status,
+        projectStatusLabel: project.status === "ongoing" ? "Active" : project.status,
         clientName: project.clientName || "",
+      },
+      summary: {
+        teamMembersCount: (project.teamMembers || []).length,
+        tasksCount: (project.tasks || []).length,
+        evaluationsCount: (project.evaluations || []).length,
       },
       currentTasks,
       teamMembers: (project.teamMembers || []).map((member) => ({
@@ -272,6 +396,8 @@ export const getLeaderDashboard = asyncHandeler(async (req, res, next) => {
         role: member.role,
         level: member.level,
         status: member.status,
+        canViewProfile: true,
+        canReplace: true,
       })),
       recentEvaluations: (project.evaluations || [])
         .slice(0, 5)
@@ -282,6 +408,7 @@ export const getLeaderDashboard = asyncHandeler(async (req, res, next) => {
           rating: item.rating,
           comment: item.comment,
           createdAt: item.createdAt,
+          ratingStars: Math.round(item.rating),
         })),
       recentActivity: (project.activities || [])
         .slice(0, 10)
@@ -294,6 +421,9 @@ export const getLeaderDashboard = asyncHandeler(async (req, res, next) => {
           createdAt: item.createdAt,
         })),
       progress,
+      actions: {
+        canAddTask: true,
+      },
     },
   });
 });
@@ -864,8 +994,8 @@ export const askProjectAssistant = asyncHandeler(async (req, res, next) => {
 });
 
 export const previewClientJobPost = asyncHandeler(async (req, res, next) => {
-  if (req.user.role !== roleEnum.client) {
-    return next(new Error("only client can preview this job post", { cause: 403 }));
+  if (!assertClientRole({ req, next, actionLabel: "preview this job post" })) {
+    return;
   }
 
   const preview = normalizeJobPostPayload(req.body);
@@ -880,8 +1010,8 @@ export const previewClientJobPost = asyncHandeler(async (req, res, next) => {
 });
 
 export const publishClientJobPost = asyncHandeler(async (req, res, next) => {
-  if (req.user.role !== roleEnum.client) {
-    return next(new Error("only client can publish this job post", { cause: 403 }));
+  if (!assertClientRole({ req, next, actionLabel: "publish this job post" })) {
+    return;
   }
 
   const jobPayload = normalizeJobPostPayload(req.body);
@@ -892,6 +1022,7 @@ export const publishClientJobPost = asyncHandeler(async (req, res, next) => {
       {
         company: req.user._id,
         ...jobPayload,
+        publicationStatus: "published",
       },
     ],
   });
@@ -900,6 +1031,481 @@ export const publishClientJobPost = asyncHandeler(async (req, res, next) => {
     res,
     status: 201,
     message: "job published successfully",
-    data: { job },
+    data: { job: formatJobPostPayload(job) },
+  });
+});
+
+export const saveJobDraft = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "save job drafts" })) {
+    return;
+  }
+
+  const jobPayload = normalizeJobPostPayload(req.body);
+
+  const [job] = await dbService.create({
+    model: jobModel,
+    data: [
+      {
+        company: req.user._id,
+        ...jobPayload,
+        publicationStatus: "draft",
+      },
+    ],
+  });
+
+  return successResponse({
+    res,
+    status: 201,
+    message: "job draft saved successfully",
+    data: { job: formatJobPostPayload(job) },
+  });
+});
+
+export const getJobDraftDetails = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "view job drafts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    publicationStatus: "draft",
+    next,
+  });
+
+  if (!job) return;
+
+  return successResponse({
+    res,
+    message: "job draft fetched successfully",
+    data: { job: formatJobPostPayload(job) },
+  });
+});
+
+export const updateJobDraft = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "update job drafts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const existingJob = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    publicationStatus: "draft",
+    next,
+  });
+
+  if (!existingJob) return;
+
+  const mergedBody = {
+    title: req.body.title ?? existingJob.title,
+    description: req.body.description ?? existingJob.description,
+    skills: req.body.skills ?? existingJob.skills,
+    teamSize: req.body.teamSize ?? existingJob.teamSize,
+    budget: req.body.budget ?? existingJob.budget,
+    deadline: req.body.deadline ?? existingJob.deadline,
+    estimatedDuration: req.body.estimatedDuration ?? existingJob.estimatedDuration,
+    workType: req.body.workType ?? existingJob.workType,
+    priority: req.body.priority ?? existingJob.priority,
+    workMode: req.body.workMode ?? existingJob.workMode,
+  };
+
+  const jobPayload = normalizeJobPostPayload(mergedBody);
+
+  const job = await dbService.findOneAndUpdate({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id, publicationStatus: "draft" },
+    data: {
+      ...jobPayload,
+    },
+  });
+
+  return successResponse({
+    res,
+    message: "job draft updated successfully",
+    data: { job: formatJobPostPayload(job) },
+  });
+});
+
+export const publishJobDraft = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "publish job drafts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    publicationStatus: "draft",
+    next,
+  });
+
+  if (!job) return;
+
+  const published = await dbService.findOneAndUpdate({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id, publicationStatus: "draft" },
+    data: {
+      publicationStatus: "published",
+      status: "active",
+    },
+  });
+
+  return successResponse({
+    res,
+    message: "job draft published successfully",
+    data: { job: formatJobPostPayload(published) },
+  });
+});
+
+export const getMyJobPosts = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "view their job posts" })) {
+    return;
+  }
+
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 10);
+  const skip = (page - 1) * limit;
+
+  const filter = { company: req.user._id, publicationStatus: "published" };
+
+  const [jobs, totalCount, totalApplications, appliedProjectCount] = await Promise.all([
+    jobModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    jobModel.countDocuments(filter),
+    jobModel.aggregate([
+      { $match: { company: req.user._id, publicationStatus: "published" } },
+      { $group: { _id: null, total: { $sum: "$applicationsCount" } } },
+    ]),
+    jobModel.countDocuments({
+      company: req.user._id,
+      publicationStatus: "published",
+      applicationsCount: { $gt: 0 },
+    }),
+  ]);
+
+  return successResponse({
+    res,
+    message: "my job posts fetched successfully",
+    data: {
+      items: jobs.map(formatMyJobCard),
+      stats: {
+        totalPosts: totalCount,
+        appliedProject: appliedProjectCount,
+        totalApplication: totalApplications?.[0]?.total || 0,
+      },
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit) || 1,
+      },
+    },
+  });
+});
+
+export const getMyJobPostDetails = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "view job details" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!job) return;
+
+  return successResponse({
+    res,
+    message: "job details fetched successfully",
+    data: {
+      jobInfo: {
+        jobId: job._id,
+        title: job.title,
+        description: job.description,
+        skills: job.skills || [],
+      },
+      stats: {
+        numberOfApplicants: job.applicationsCount || 0,
+        status: job.status,
+        statusLabel: mapJobStatusLabel(job.status),
+      },
+      actions: {
+        canViewApplicants: true,
+        canCloseJob: true,
+        canEditJob: true,
+      },
+    },
+  });
+});
+
+export const updateMyJobPost = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "edit job posts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const existingJob = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!existingJob) return;
+
+  const mergedBody = {
+    title: req.body.title ?? existingJob.title,
+    description: req.body.description ?? existingJob.description,
+    skills: req.body.skills ?? existingJob.skills,
+    teamSize: req.body.teamSize ?? existingJob.teamSize,
+    budget: req.body.budget ?? existingJob.budget,
+    deadline: req.body.deadline ?? existingJob.deadline,
+    estimatedDuration: req.body.estimatedDuration ?? existingJob.estimatedDuration,
+    workType: req.body.workType ?? existingJob.workType,
+    priority: req.body.priority ?? existingJob.priority,
+    workMode: req.body.workMode ?? existingJob.workMode,
+  };
+
+  const jobPayload = normalizeJobPostPayload(mergedBody);
+
+  const job = await dbService.findOneAndUpdate({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id },
+    data: {
+      ...jobPayload,
+    },
+  });
+
+  return successResponse({
+    res,
+    message: "job post updated successfully",
+    data: { job: formatJobPostPayload(job) },
+  });
+});
+
+export const updateMyJobPostStatus = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "change job status" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const { status } = req.body;
+
+  const existingJob = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!existingJob) return;
+
+  const updatedJob = await dbService.findOneAndUpdate({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id },
+    data: { status },
+  });
+
+  return successResponse({
+    res,
+    message: "job status updated successfully",
+    data: { job: formatJobPostPayload(updatedJob) },
+  });
+});
+
+export const deleteMyJobPost = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "delete job posts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const existingJob = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!existingJob) return;
+
+  await dbService.deleteOne({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id },
+  });
+
+  return successResponse({
+    res,
+    message: "job post deleted successfully",
+  });
+});
+
+export const closeMyJobPost = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "close job posts" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const existingJob = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!existingJob) return;
+
+  const updatedJob = await dbService.findOneAndUpdate({
+    model: jobModel,
+    filter: { _id: jobId, company: req.user._id },
+    data: { status: "closed" },
+  });
+
+  return successResponse({
+    res,
+    message: "job closed successfully",
+    data: {
+      job: {
+        jobId: updatedJob._id,
+        status: updatedJob.status,
+        statusLabel: mapJobStatusLabel(updatedJob.status),
+      },
+    },
+  });
+});
+
+export const getMyJobApplicants = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "view job applicants" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 10);
+  const skip = (page - 1) * limit;
+
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!job) return;
+
+  const [applications, totalCount, totalPendingForJob] = await Promise.all([
+    applicationModel
+      .find({ job: jobId, company: req.user._id })
+      .populate([{ path: "developer", select: "email" }])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    applicationModel.countDocuments({ job: jobId, company: req.user._id }),
+    applicationModel.countDocuments({ job: jobId, company: req.user._id, status: "pending" }),
+  ]);
+
+  const developerIds = applications.map((item) => item.developer?._id).filter(Boolean);
+
+  const [profiles, ratings] = await Promise.all([
+    developerModel.find({ user: { $in: developerIds } }),
+    ratingModel.aggregate([
+      { $match: { developer: { $in: developerIds } } },
+      {
+        $group: {
+          _id: "$developer",
+          average: { $avg: "$overall" },
+        },
+      },
+    ]),
+  ]);
+
+  const profileMap = new Map(profiles.map((profile) => [String(profile.user), profile]));
+  const ratingMap = new Map(ratings.map((item) => [String(item._id), item.average]));
+
+  return successResponse({
+    res,
+    message: "job applicants fetched successfully",
+    data: {
+      stats: {
+        totalPending: totalPendingForJob,
+      },
+      applicants: applications.map((item) => ({
+        applicationId: item._id,
+        status: item.status,
+        proposedBudget: item.proposedBudget,
+        submittedAt: item.createdAt,
+        developer: {
+          userId: item.developer?._id || null,
+          name:
+            profileMap.get(String(item.developer?._id || ""))?.fullName || "Unknown Developer",
+          rank:
+            profileMap.get(String(item.developer?._id || ""))?.rank || "Bronze",
+          rankScore: Number(
+            (ratingMap.get(String(item.developer?._id || "")) || 0).toFixed(1)
+          ),
+          skills: profileMap.get(String(item.developer?._id || ""))?.skills || [],
+          email: item.developer?.email || "",
+          profile: {
+            title: profileMap.get(String(item.developer?._id || ""))?.title || "",
+          },
+        },
+        actions: {
+          canAccept: item.status === "pending",
+          canReject: item.status === "pending",
+          canViewProfile: true,
+        },
+      })),
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit) || 1,
+      },
+    },
+  });
+});
+
+export const updateMyJobApplicantStatus = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "update applicant status" })) {
+    return;
+  }
+
+  const { jobId, applicationId } = req.params;
+  const { status } = req.body;
+
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!job) return;
+
+  const application = await dbService.findOne({
+    model: applicationModel,
+    filter: { _id: applicationId, job: jobId, company: req.user._id },
+  });
+
+  if (!application) {
+    return next(new Error("application not found", { cause: 404 }));
+  }
+
+  const updated = await dbService.findOneAndUpdate({
+    model: applicationModel,
+    filter: { _id: applicationId, job: jobId, company: req.user._id },
+    data: { status },
+  });
+
+  return successResponse({
+    res,
+    message: `application ${status} successfully`,
+    data: {
+      application: {
+        applicationId: updated._id,
+        status: updated.status,
+      },
+    },
   });
 });

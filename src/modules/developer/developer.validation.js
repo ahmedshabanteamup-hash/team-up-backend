@@ -106,6 +106,7 @@ export const addWorkHistoryItem = {
   body: joi
     .object({
       projectTitle: joi.string().min(2).required(),
+      clientName: joi.string().allow("").optional(),
       role: joi.string().min(2).required(),
       deadline: joi.date().optional(),
       progress: joi.number().min(0).max(100).optional(),
@@ -149,6 +150,49 @@ export const changePassword = {
         .string()
         .pattern(new RegExp(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/))
         .required(),
+    })
+    .required(),
+};
+
+export const startSkillQuiz = {
+  body: joi
+    .object({
+      trackKey: joi.string().valid("frontend", "backend", "ai", "uiux").required(),
+    })
+    .required(),
+};
+
+export const answerSkillQuizQuestion = {
+  params: joi
+    .object({
+      attemptId: generalFields.id.required(),
+    })
+    .required(),
+  body: joi
+    .object({
+      questionId: joi.string().required(),
+      selectedOptionId: joi.string().required(),
+    })
+    .required(),
+};
+
+export const submitSkillQuiz = {
+  params: joi
+    .object({
+      attemptId: generalFields.id.required(),
+    })
+    .required(),
+};
+
+export const browseDeveloperProjects = {
+  query: joi
+    .object({
+      search: joi.string().allow("").max(100).optional(),
+      skill: joi.string().allow("").max(100).optional(),
+      workMode: joi.string().valid("remote", "onsite", "hybrid").optional(),
+      status: joi.string().valid("open", "applied", "closed", "all").optional(),
+      page: joi.number().min(1).optional(),
+      limit: joi.number().min(1).max(100).optional(),
     })
     .required(),
 };

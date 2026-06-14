@@ -1,20 +1,64 @@
-import { asyncHandler } from "../../utils/response.js";
+import { asyncHandeler, successResponse } from "../../utils/response.js";
 import * as dbService from "../../DB/db.service.js";
 import { clientModel } from "../../DB/models/client.model.js";
-import { roleEnum } from "../../utils/enums.js";
-import { userModel } from "../../DB/models/user.model.js";
-import { successResponse } from "../../utils/response.js";
+import { roleEnum, userModel } from "../../DB/models/user.model.js";
+import { projectModel } from "../../DB/models/project.model.js";
+import { ratingModel } from "../../DB/models/rating.model.js";
 
-export const createClientProfile = asyncHandler(async (req, res, next) => {
+const getClientRanking = (averageRating) => {
+  if (averageRating >= 4.5) return "Gold";
+  if (averageRating >= 4) return "Silver";
+  if (averageRating >= 3) return "Bronze";
+  return "Starter";
+};
+
+const buildClientAccountSummary = async (userId) => {
+  const projects = await dbService.find({
+    model: projectModel,
+    filter: {
+      client: userId,
+      deletedAt: { $exists: false },
+    },
+    select: "teamSize",
+  });
+
+  const ratingSummary = await ratingModel.aggregate([
+    { $match: { client: userId } },
+    {
+      $group: {
+        _id: null,
+        totalRatings: { $sum: 1 },
+        overallRating: { $avg: "$overall" },
+      },
+    },
+  ]);
+
+  const totalTeamsBuilt = projects.filter((project) => (project.teamSize || 0) > 0).length;
+  const averageRating = Number((ratingSummary[0]?.overallRating || 0).toFixed(1));
+
+  return {
+    totalTeamsBuilt,
+    averageRating,
+    ranking: getClientRanking(averageRating),
+    totalRatings: ratingSummary[0]?.totalRatings || 0,
+  };
+};
+
+export const createClientProfile = asyncHandeler(async (req, res, next) => {
   const userId = req.user._id;
-  const { fullName, bio, country, phone } = req.body;
+  const {
+    fullName,
+    bio,
+    country,
+    phone,
+    servicesWanted = [],
+    skills = [],
+  } = req.body;
 
-  // 1️⃣ role check
   if (req.user.role !== roleEnum.client) {
     return next(new Error("not allowed", { cause: 403 }));
   }
 
-  // 2️⃣ check if profile already exists
   const exists = await dbService.findOne({
     model: clientModel,
     filter: { user: userId },
@@ -24,7 +68,6 @@ export const createClientProfile = asyncHandler(async (req, res, next) => {
     return next(new Error("client profile already exists", { cause: 409 }));
   }
 
-  // 3️⃣ create profile
   const profile = await dbService.create({
     model: clientModel,
     data: [
@@ -34,29 +77,27 @@ export const createClientProfile = asyncHandler(async (req, res, next) => {
         bio,
         country,
         phone,
+        servicesWanted,
+        skills,
       },
     ],
   });
 
-      return successResponse({
-          res,
-          status: 201,
-          message: "Client profile created successfully",
-          data: { profile },
+  return successResponse({
+    res,
+    status: 201,
+    message: "Client profile created successfully",
+    data: { profile },
   });
 });
 
-// ////////////////////////////////////////////////////////////////////////////////////22222222222   
-// دا مفهوش فاليديشن دا مش جاى من البودى
-export const getMyClientProfile = asyncHandler(async (req, res, next) => {
+export const getMyClientProfile = asyncHandeler(async (req, res, next) => {
   const userId = req.user._id;
 
-  // 1️⃣ تأكد إن الرول Client
   if (req.user.role !== roleEnum.client) {
     return next(new Error("not allowed", { cause: 403 }));
   }
 
-  // 2️⃣ هات اليوزر
   const user = await dbService.findOne({
     model: userModel,
     filter: { _id: userId, confirmEmail: { $exists: true } },
@@ -67,7 +108,6 @@ export const getMyClientProfile = asyncHandler(async (req, res, next) => {
     return next(new Error("invalid account", { cause: 404 }));
   }
 
-  // 3️⃣ هات البروفايل
   const clientProfile = await dbService.findOne({
     model: clientModel,
     filter: { user: userId },
@@ -77,18 +117,19 @@ export const getMyClientProfile = asyncHandler(async (req, res, next) => {
     return next(new Error("client profile not found", { cause: 404 }));
   }
 
-  // 4️⃣ Response
+  const accountSummary = await buildClientAccountSummary(userId);
+
   return successResponse({
     res,
     data: {
       user,
       clientProfile,
+      accountSummary,
     },
   });
 });
 
-///////////////////////////////////////////////////////////////////////////////////////
-export const updateClientProfile = asyncHandler(async (req, res, next) => {
+export const updateClientProfile = asyncHandeler(async (req, res, next) => {
   const userId = req.user._id;
   const {
     fullName,
@@ -97,14 +138,13 @@ export const updateClientProfile = asyncHandler(async (req, res, next) => {
     country,
     bio,
     servicesWanted,
+    skills,
   } = req.body;
 
-  // 1️⃣ role check
   if (req.user.role !== roleEnum.client) {
     return next(new Error("not allowed", { cause: 403 }));
   }
 
-  // 2️⃣ profile exists ?
   const profile = await dbService.findOne({
     model: clientModel,
     filter: { user: userId },
@@ -114,7 +154,6 @@ export const updateClientProfile = asyncHandler(async (req, res, next) => {
     return next(new Error("client profile not found", { cause: 404 }));
   }
 
-  // 3️⃣ update (only sent fields)
   const updatedProfile = await dbService.findOneAndUpdate({
     model: clientModel,
     filter: { user: userId },
@@ -123,12 +162,12 @@ export const updateClientProfile = asyncHandler(async (req, res, next) => {
       ...(userName && { userName }),
       ...(phone && { phone }),
       ...(country && { country }),
-      ...(bio && { bio }),
+      ...(bio !== undefined && { bio }),
       ...(servicesWanted && { servicesWanted }),
+      ...(skills && { skills }),
     },
   });
 
-  // 4️⃣ response
   return successResponse({
     res,
     message: "Client profile updated successfully",
@@ -136,5 +175,17 @@ export const updateClientProfile = asyncHandler(async (req, res, next) => {
   });
 });
 
-//////////////////////////////////////////
+export const getClientAccountSummary = asyncHandeler(async (req, res, next) => {
+  const userId = req.user._id;
 
+  if (req.user.role !== roleEnum.client) {
+    return next(new Error("not allowed", { cause: 403 }));
+  }
+
+  const summary = await buildClientAccountSummary(userId);
+
+  return successResponse({
+    res,
+    data: summary,
+  });
+});

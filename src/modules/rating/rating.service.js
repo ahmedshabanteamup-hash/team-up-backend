@@ -76,22 +76,11 @@ export const getClientRatingSummary = asyncHandeler(async (req, res, next) => {
       $group: {
         _id: "$client",
         totalRatings: { $sum: 1 },
-
-        avgCommunication: { $avg: "$communication" },
-        avgTimelyPayments: { $avg: "$timelyPayments" },
-        avgClarity: { $avg: "$clarity" },
-        avgProfessionalism: { $avg: "$professionalism" },
-
-        overallRating: {
-          $avg: {
-            $avg: [
-              "$communication",
-              "$timelyPayments",
-              "$clarity",
-              "$professionalism",
-            ],
-          },
-        },
+        avgCommunication: { $avg: "$ratings.communication" },
+        avgPayments: { $avg: "$ratings.payments" },
+        avgClarity: { $avg: "$ratings.clarity" },
+        avgProfessionalism: { $avg: "$ratings.professionalism" },
+        overallRating: { $avg: "$overall" },
       },
     },
     {
@@ -102,7 +91,7 @@ export const getClientRatingSummary = asyncHandeler(async (req, res, next) => {
 
         breakdown: {
           communication: { $round: ["$avgCommunication", 1] },
-          timelyPayments: { $round: ["$avgTimelyPayments", 1] },
+          timelyPayments: { $round: ["$avgPayments", 1] },
           clarity: { $round: ["$avgClarity", 1] },
           professionalism: { $round: ["$avgProfessionalism", 1] },
         },

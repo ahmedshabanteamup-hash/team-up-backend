@@ -126,10 +126,87 @@ router.post(
 );
 
 router.post(
+  "/jobs/drafts",
+  authentication(),
+  validation(validators.previewJobPost),
+  projectService.saveJobDraft
+);
+
+router.get(
+  "/jobs/drafts/:jobId",
+  authentication(),
+  validation(validators.jobIdParam),
+  projectService.getJobDraftDetails
+);
+
+router.patch(
+  "/jobs/drafts/:jobId",
+  authentication(),
+  validation(validators.updateJobDraft),
+  projectService.updateJobDraft
+);
+
+router.post(
+  "/jobs/drafts/:jobId/publish",
+  authentication(),
+  validation(validators.jobIdParam),
+  projectService.publishJobDraft
+);
+
+router.post(
   "/jobs/publish",
   authentication(),
   validation(validators.previewJobPost),
   projectService.publishClientJobPost
+);
+
+router.get(
+  "/jobs/my-posts",
+  authentication(),
+  validation(validators.myJobsQuery),
+  projectService.getMyJobPosts
+);
+
+router.get(
+  "/jobs/my-posts/:jobId",
+  authentication(),
+  validation(validators.jobIdParam),
+  projectService.getMyJobPostDetails
+);
+
+router.patch(
+  "/jobs/my-posts/:jobId",
+  authentication(),
+  validation(validators.updateMyJobPost),
+  projectService.updateMyJobPost
+);
+
+router.patch(
+  "/jobs/my-posts/:jobId/close",
+  authentication(),
+  validation(validators.jobIdParam),
+  projectService.closeMyJobPost
+);
+
+router.get(
+  "/jobs/my-posts/:jobId/applicants",
+  authentication(),
+  validation(validators.myJobApplicantsQuery),
+  projectService.getMyJobApplicants
+);
+
+router.patch(
+  "/jobs/my-posts/:jobId/applicants/:applicationId/status",
+  authentication(),
+  validation(validators.updateApplicantStatus),
+  projectService.updateMyJobApplicantStatus
+);
+
+router.delete(
+  "/jobs/my-posts/:jobId",
+  authentication(),
+  validation(validators.jobIdParam),
+  projectService.deleteMyJobPost
 );
 
 export default router;

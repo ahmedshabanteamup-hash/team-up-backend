@@ -38,6 +38,16 @@ const clientSchema = new Schema(
       default: "",
     },
 
+    servicesWanted: {
+      type: [String],
+      default: [],
+    },
+
+    skills: {
+      type: [String],
+      default: [],
+    },
+
     // صورة البروفايل
     profileImage: {
       url: { type: String, default: "" },

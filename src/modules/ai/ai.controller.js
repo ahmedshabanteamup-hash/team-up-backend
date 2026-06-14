@@ -12,8 +12,16 @@ router.get(
   aiService.getTeamCandidates
 );
 
+router.get(
+  "/team-builder/sessions/:sessionId",
+  authentication(),
+  validation(validators.sessionIdParamSchema),
+  aiService.getTeamBuilderSession
+);
+
 router.post(
   "/team-builder/recommend",
+  authentication(),
   validation(validators.recommendTeamSchema),
   aiService.recommendTeam
 );
@@ -25,5 +33,39 @@ router.post(
   aiService.recommendTeamFromJob
 );
 
-export default router;
+router.post(
+  "/team-builder/sessions/:sessionId/regenerate",
+  authentication(),
+  validation(validators.sessionIdParamSchema),
+  aiService.regenerateTeamBuilderSession
+);
 
+router.patch(
+  "/team-builder/sessions/:sessionId/members/:developerId/accept",
+  authentication(),
+  validation(validators.sessionMemberParamSchema),
+  aiService.acceptSuggestedMember
+);
+
+router.post(
+  "/team-builder/sessions/:sessionId/members/:developerId/replace",
+  authentication(),
+  validation(validators.replaceSuggestedMemberSchema),
+  aiService.replaceSuggestedMember
+);
+
+router.post(
+  "/team-builder/sessions/:sessionId/finalize",
+  authentication(),
+  validation(validators.sessionIdParamSchema),
+  aiService.finalizeSuggestedTeam
+);
+
+router.patch(
+  "/team-builder/sessions/:sessionId/reject",
+  authentication(),
+  validation(validators.sessionIdParamSchema),
+  aiService.rejectSuggestedTeam
+);
+
+export default router;

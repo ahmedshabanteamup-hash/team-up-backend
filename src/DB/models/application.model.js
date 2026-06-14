@@ -31,7 +31,7 @@ const applicationSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "shortlisted", "interviewed", "accepted", "rejected"],
       default: "pending",
       index: true,
     },

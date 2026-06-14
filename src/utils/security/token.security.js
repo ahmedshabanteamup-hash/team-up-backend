@@ -1,58 +1,69 @@
-import jwt, { decode } from 'jsonwebtoken'
-import { roleEnum, userModel } from "../../DB/models/user.model.js"
-import * as DBService from "../../DB/db.service.js"
-import { nanoid } from 'nanoid'
-import { tokenModel } from '../../DB/models/token.model.js'
+import jwt from "jsonwebtoken";
+import { nanoid } from "nanoid";
+import { roleEnum, userModel } from "../../DB/models/user.model.js";
+import { tokenModel } from "../../DB/models/token.model.js";
+import * as DBService from "../../DB/db.service.js";
 
-
-export const signatureLevelEnum = { bearer: "Bearer", system: "System" }
-export const tokenTypeEnum = { access: "access", refresh: "refresh" }
-export const logoutEnum = { signoutFromAll: "signoutFromAll", signout: "signout", satyLoggedIn :"satyLoggedIn" }
-
+export const signatureLevelEnum = { bearer: "Bearer", system: "System" };
+export const tokenTypeEnum = { access: "access", refresh: "refresh" };
+export const logoutEnum = {
+  signoutFromAll: "signoutFromAll",
+  signout: "signout",
+  satyLoggedIn: "satyLoggedIn",
+};
 
 export const generateToken = async ({
-    payload = {},
-    secret = process.env.ACCESS_USER_TOKEN_SIGNATURE,
-    options = {
-        expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN) // cast to num because this become as string
-    }
-} = {}) => {
-    return jwt.sign(payload,secret,options)
-}
-
-
+  payload = {},
+  secret = process.env.ACCESS_USER_TOKEN_SIGNATURE,
+  options = {
+    expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN),
+  },
+} = {}) => jwt.sign(payload, secret, options);
 
 export const verifyToken = async ({
-    token = "",
-    secret = process.env.ACCESS_USER_TOKEN_SIGNATURE,
+  token = "",
+  secret = process.env.ACCESS_USER_TOKEN_SIGNATURE,
+} = {}) => jwt.verify(token, secret);
+
+export const getSignatures = async ({
+  signatureLevel = signatureLevelEnum.bearer,
 } = {}) => {
-    return jwt.verify(token, secret)
-}
+  if (signatureLevel === signatureLevelEnum.system) {
+    return {
+      accessSignature: process.env.ACCESS_SYSTEM_TOKEN_SIGNATURE,
+      refreshSignature: process.env.REFRESH_SYSTEM_TOKEN_SIGNATURE,
+    };
+  }
 
+  return {
+    accessSignature: process.env.ACCESS_USER_TOKEN_SIGNATURE,
+    refreshSignature: process.env.REFRESH_USER_TOKEN_SIGNATURE,
+  };
+};
 
-export const getSignatures = async ({ signatureLevel = signatureLevelEnum.bearer } = {}) => {
-    
-    // تعريف كائن الإرجاع الأولي
-    let signatures = { accessSignature: undefined, refreshSignature: undefined };
+const extractTokenParts = (authorization = "") => {
+  const value = String(authorization || "").trim();
 
-    // التحقق من مستوى التوقيع
-    switch (signatureLevel) {
-        
-        case signatureLevelEnum.system:
-            // جلب مفاتيح توقيع النظام (System)
-            signatures.accessSignature = process.env.ACCESS_SYSTEM_TOKEN_SIGNATURE;
-            signatures.refreshSignature = process.env.REFRESH_SYSTEM_TOKEN_SIGNATURE;
-            break;
+  if (!value) return null;
 
-        default:
-            // في حالة القيمة الافتراضية (bearer) أو أي قيمة أخرى غير النظام
-            // جلب مفاتيح توقيع المستخدم (User)
-            signatures.accessSignature = process.env.ACCESS_USER_TOKEN_SIGNATURE;
-            signatures.refreshSignature = process.env.REFRESH_USER_TOKEN_SIGNATURE;
-            break;
-    }
+  const parts = value.split(" ").filter(Boolean);
 
-    return signatures;
+  if (parts.length === 1) {
+    return { signatureLevel: signatureLevelEnum.bearer, token: parts[0] };
+  }
+
+  const scheme = parts[0].toLowerCase();
+  const token = parts.slice(1).join(" ").trim();
+
+  if (scheme === "bearer") {
+    return { signatureLevel: signatureLevelEnum.bearer, token };
+  }
+
+  if (scheme === "system") {
+    return { signatureLevel: signatureLevelEnum.system, token };
+  }
+
+  return null;
 };
 
 export const decodedToken = async ({
@@ -60,36 +71,57 @@ export const decodedToken = async ({
   authorization = "",
   tokenType = tokenTypeEnum.access,
 } = {}) => {
+  const parsed = extractTokenParts(authorization);
 
-  const [bearer, token] = authorization.split(" ");
-
-  if (!bearer || !token) {
-    return next(new Error("missing token parts", { cause: 401 }));
+  if (!parsed?.token) {
+    return next(
+      new Error(
+        "missing/invalid authorization header. use: Bearer <access_token>",
+        { cause: 401 }
+      )
+    );
   }
 
-  let signatureLevel = signatureLevelEnum.bearer;
-
-  if (bearer.toLowerCase() === "system") {
-    signatureLevel = signatureLevelEnum.system;
-  }
-
-  const signatures = await getSignatures({ signatureLevel });
-
-  const decoded = await verifyToken({
-    token,
-    secret:
-      tokenType === tokenTypeEnum.access
-        ? signatures.accessSignature
-        : signatures.refreshSignature,
+  const signatures = await getSignatures({
+    signatureLevel: parsed.signatureLevel,
   });
+
+  let decoded;
+  try {
+    decoded = await verifyToken({
+      token: parsed.token,
+      secret:
+        tokenType === tokenTypeEnum.access
+          ? signatures.accessSignature
+          : signatures.refreshSignature,
+    });
+  } catch (error) {
+    if (
+      error?.name === "JsonWebTokenError" &&
+      error?.message?.includes("invalid signature")
+    ) {
+      return next(
+        new Error(
+          "invalid token signature. make sure you send credentials.access_token from /auth/login",
+          { cause: 401 }
+        )
+      );
+    }
+
+    if (error?.name === "TokenExpiredError") {
+      return next(new Error("token expired, please login again", { cause: 401 }));
+    }
+
+    return next(new Error("invalid token", { cause: 401 }));
+  }
 
   if (
     tokenType === tokenTypeEnum.refresh &&
     decoded.jti &&
-    await DBService.findOne({
+    (await DBService.findOne({
       model: tokenModel,
       filter: { jti: decoded.jti },
-    })
+    }))
   ) {
     return next(new Error("invalid login credentials", { cause: 401 }));
   }
@@ -110,51 +142,47 @@ export const decodedToken = async ({
   return { user, decoded };
 };
 
-
-  
-
-
 export const generateLoginCredentials = async ({ user = {} } = {}) => {
-  // 1) اختار signatures
-  const signatureLevel = (user.role === roleEnum.admin) ? signatureLevelEnum.system : signatureLevelEnum.bearer;
+  const signatureLevel =
+    user.role === roleEnum.admin
+      ? signatureLevelEnum.system
+      : signatureLevelEnum.bearer;
   const signatures = await getSignatures({ signatureLevel });
 
-  // 2) صنع jwtid
   const jwtid = nanoid();
 
-  // 3) Access token
   const access_token = await generateToken({
     payload: { _id: user._id },
     secret: signatures.accessSignature,
     options: {
       jwtid,
-      expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN)
-    }
+      expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN),
+    },
   });
 
-  // 4) Refresh token
   const refresh_token = await generateToken({
     payload: { _id: user._id },
     secret: signatures.refreshSignature,
     options: {
       jwtid,
-      expiresIn: Number(process.env.REFRESH_TOKEN_EXPIRES_IN)
-    }
+      expiresIn: Number(process.env.REFRESH_TOKEN_EXPIRES_IN),
+    },
   });
 
-  // 5) سجّل الـ JWT ID في tokenModel (DB)
-  const expiresAt = new Date(Date.now() + Number(process.env.REFRESH_TOKEN_EXPIRES_IN) * 1000);
+  const expiresAt = new Date(
+    Date.now() + Number(process.env.REFRESH_TOKEN_EXPIRES_IN) * 1000
+  );
   await DBService.create({
     model: tokenModel,
-    data: [{ jti: jwtid, user: user._id, type: tokenTypeEnum.refresh, expiresAt }]
+    data: [{ jti: jwtid, user: user._id, type: tokenTypeEnum.refresh, expiresAt }],
   });
 
-  return { access_token, refresh_token, jti: jwtid };
+  return {
+    access_token,
+    refresh_token,
+    accessToken: access_token,
+    refreshToken: refresh_token,
+    tokenType: "Bearer",
+    jti: jwtid,
+  };
 };
-
-
-
-
-
-
-

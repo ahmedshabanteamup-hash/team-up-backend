@@ -4,6 +4,7 @@ import { generalFields } from "../../middelware/validation.middelware.js";
 export const recommendTeamSchema = {
   body: joi
     .object({
+      projectTitle: joi.string().min(2).max(120).optional(),
       team_size: joi.number().integer().min(1).max(20).optional(),
       teamSize: joi.number().integer().min(1).max(20).optional(),
       skills: joi.array().items(joi.string().min(1)).min(1).required(),
@@ -36,6 +37,37 @@ export const recommendFromJobSchema = {
     .required(),
 };
 
+export const sessionIdParamSchema = {
+  params: joi
+    .object({
+      sessionId: generalFields.id.required(),
+    })
+    .required(),
+};
+
+export const sessionMemberParamSchema = {
+  params: joi
+    .object({
+      sessionId: generalFields.id.required(),
+      developerId: generalFields.id.required(),
+    })
+    .required(),
+};
+
+export const replaceSuggestedMemberSchema = {
+  params: joi
+    .object({
+      sessionId: generalFields.id.required(),
+      developerId: generalFields.id.required(),
+    })
+    .required(),
+  body: joi
+    .object({
+      preferredSkill: joi.string().allow("").optional(),
+    })
+    .required(),
+};
+
 export const candidatesQuerySchema = {
   query: joi
     .object({
@@ -45,4 +77,3 @@ export const candidatesQuerySchema = {
     })
     .required(),
 };
-

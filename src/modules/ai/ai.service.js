@@ -1,6 +1,9 @@
 import { developerModel } from "../../DB/models/developer.model.js";
 import { ratingModel } from "../../DB/models/rating.model.js";
 import { jobModel } from "../../DB/models/jop.model.js";
+import { projectModel } from "../../DB/models/project.model.js";
+import { aiTeamBuildSessionModel } from "../../DB/models/aiTeamBuildSession.model.js";
+import { roleEnum } from "../../DB/models/user.model.js";
 import { asyncHandeler, successResponse } from "../../utils/response.js";
 
 const fallbackCandidates = [
@@ -98,6 +101,165 @@ const buildNotes = ({
     lines.push("All requested skills are covered by selected team.");
   }
   return lines.join(" ");
+};
+
+const ensureBuilderAccess = (req, next) => {
+  if (![roleEnum.client, roleEnum.company, roleEnum.admin].includes(req.user?.role)) {
+    next(new Error("only client/company can use team builder", { cause: 403 }));
+    return false;
+  }
+  return true;
+};
+
+const pushSessionActivity = (session, title, details = "", type = "update") => {
+  const current = Array.isArray(session.recentActivity) ? session.recentActivity : [];
+  return [
+    {
+      type,
+      title,
+      details,
+      createdAt: new Date(),
+    },
+    ...current,
+  ].slice(0, 8);
+};
+
+const trackLevelFromCandidate = (candidate = {}) => {
+  const years = Number(candidate.yearsExperience || 0);
+  if (years >= 6) return "senior";
+  if (years >= 3) return "mid-level";
+  return "junior";
+};
+
+const availabilityLabelFromCandidate = (candidate = {}) => {
+  if (!candidate.available) return "busy";
+  return candidate.hoursPerWeek >= 30 ? "immediate" : "in 2 weeks";
+};
+
+const buildAiReasoning = ({ candidate, requestedSkills = [], topPriority = "balanced" }) => {
+  const focus =
+    topPriority === "best quality"
+      ? "strong quality and seniority"
+      : topPriority === "lowest cost"
+      ? "cost efficiency"
+      : topPriority === "fast delivery"
+      ? "availability and delivery speed"
+      : "balanced skill and availability";
+
+  const matched = (candidate.matchedSkills || []).slice(0, 4).join(", ");
+  return `Selected for ${focus}. Matched skills: ${matched || "general fit"}.`;
+};
+
+const buildRecommendationSummary = ({ team = [], recommendation, skills = [] }) => {
+  const avgMatch = team.length
+    ? Math.round(
+        (team.reduce((sum, member) => sum + Number(member.score || 0), 0) / team.length) * 100
+      )
+    : 0;
+
+  const readiness = Math.min(
+    100,
+    Math.round(
+      avgMatch * 0.55 +
+        (recommendation.missingSkills.length ? 15 : 30) +
+        (team.filter((member) => member.availabilityLabel === "immediate").length /
+          Math.max(team.length, 1)) *
+          15
+    )
+  );
+
+  const recommendationText = `This team was selected because it provides ${recommendation.missingSkills.length ? "partial" : "strong"} skill coverage for the requested scope while keeping the lineup aligned with ${skills.join(", ") || "project requirements"}.`;
+
+  return {
+    avgMatch,
+    readiness,
+    recommendationText,
+  };
+};
+
+const buildSuggestedMembers = ({ team = [], skills = [], priority = "balanced" }) =>
+  team.map((member) => ({
+    developer: member.id,
+    name: member.name,
+    track: member.track,
+    level: trackLevelFromCandidate(member),
+    yearsExperience: Number(member.yearsExperience || 0),
+    availabilityLabel: availabilityLabelFromCandidate(member),
+    hourRate: member.hourRate,
+    hoursPerWeek: member.hoursPerWeek,
+    weeklyCost: member.weeklyCost,
+    score: Math.round(Number(member.score || 0) * 100),
+    matchedSkills: member.matchedSkills || [],
+    accepted: false,
+    aiReasoning: buildAiReasoning({
+      candidate: member,
+      requestedSkills: skills,
+      topPriority: priority,
+    }),
+  }));
+
+const toSessionPayload = (session) => ({
+  sessionId: session._id,
+  projectTitle: session.projectTitle,
+  sourceType: session.sourceType,
+  sourceId: session.sourceId,
+  priority: session.priority,
+  budget: session.budget,
+  teamSize: session.teamSize,
+  requiredSkills: session.requiredSkills || [],
+  matchScore: session.matchScore,
+  readinessPercent: session.readinessPercent,
+  recommendationText: session.recommendationText,
+  notes: session.notes,
+  status: session.status,
+  suggestedLineup: (session.suggestedMembers || []).map((member) => ({
+    developerId: member.developer,
+    name: member.name,
+    track: member.track,
+    level: member.level,
+    yearsExperience: member.yearsExperience,
+    availabilityLabel: member.availabilityLabel,
+    hourRate: member.hourRate,
+    hoursPerWeek: member.hoursPerWeek,
+    weeklyCost: member.weeklyCost,
+    matchScore: member.score,
+    matchedSkills: member.matchedSkills,
+    accepted: member.accepted,
+    aiReasoning: member.aiReasoning,
+  })),
+  teamCompositionSummary: {
+    avgMatch: session.matchScore,
+    estimatedCost: session.budget ? `$${session.budget}` : "$0",
+    selectedCount: (session.suggestedMembers || []).length,
+    acceptedCount: (session.suggestedMembers || []).filter((member) => member.accepted).length,
+    skillCoverage: session.requiredSkills.length
+      ? Math.min(
+          100,
+          Math.round(
+            (new Set(
+              (session.suggestedMembers || []).flatMap((member) => member.matchedSkills || [])
+            ).size /
+              session.requiredSkills.length) *
+              100
+          )
+        )
+      : 0,
+  },
+  recentActivity: session.recentActivity || [],
+});
+
+const findSessionOrThrow = async ({ sessionId, ownerId, next }) => {
+  const session = await aiTeamBuildSessionModel.findOne({
+    _id: sessionId,
+    owner: ownerId,
+  });
+
+  if (!session) {
+    next(new Error("team builder session not found", { cause: 404 }));
+    return null;
+  }
+
+  return session;
 };
 
 const buildTeamRecommendation = ({
@@ -237,6 +399,7 @@ const loadCandidatesFromDb = async ({ onlyAvailable = true, skill, limit = 100 }
     numericId: index + 1,
     name: profile.fullName,
     track: trackFromProfile(profile),
+    yearsExperience: Number(profile.yearsExperience || 0),
     hourRate: parseHourRate(profile),
     available:
       profile.availability === "available" && Boolean(profile.acceptingNewProjects),
@@ -295,10 +458,13 @@ export const getTeamCandidates = asyncHandeler(async (req, res) => {
 });
 
 export const recommendTeam = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
   const teamSize = Number(req.body.team_size || req.body.teamSize || 3);
   const budget = Number(req.body.budget);
   const skills = req.body.skills || [];
   const priority = normalizePriority(req.body.priority || "balanced");
+  const projectTitle = String(req.body.projectTitle || "AI Team Builder").trim();
   const onlyAvailable =
     req.body.onlyAvailable === undefined ? true : Boolean(req.body.onlyAvailable);
 
@@ -328,10 +494,46 @@ export const recommendTeam = asyncHandeler(async (req, res, next) => {
     missingSkills: recommendation.missingSkills,
   });
 
+  const suggestedMembers = buildSuggestedMembers({
+    team: recommendation.team,
+    skills,
+    priority,
+  });
+  const summary = buildRecommendationSummary({
+    team: suggestedMembers,
+    recommendation,
+    skills,
+  });
+
+  const [session] = await aiTeamBuildSessionModel.create([
+    {
+      owner: req.user._id,
+      sourceType: "manual",
+      projectTitle,
+      requiredSkills: skills,
+      teamSize,
+      priority,
+      budget,
+      matchScore: summary.avgMatch,
+      readinessPercent: summary.readiness,
+      recommendationText: summary.recommendationText,
+      notes,
+      suggestedMembers,
+      recentActivity: [
+        {
+          type: "recommendation",
+          title: "AI team recommendation generated",
+          details: `Created ${suggestedMembers.length} suggested members for ${projectTitle}.`,
+        },
+      ],
+    },
+  ]);
+
   return successResponse({
     res,
     message: "team recommendation generated successfully",
     data: {
+      session: toSessionPayload(session),
       team: recommendation.team.map((member) => ({
         id: member.id,
         name: member.name,
@@ -353,6 +555,8 @@ export const recommendTeam = asyncHandeler(async (req, res, next) => {
 });
 
 export const recommendTeamFromJob = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
   const { jobId } = req.params;
   const teamSize = Number(req.body.team_size || req.body.teamSize || 3);
   const priority = normalizePriority(req.body.priority || "balanced");
@@ -400,10 +604,47 @@ export const recommendTeamFromJob = asyncHandeler(async (req, res, next) => {
     missingSkills: recommendation.missingSkills,
   });
 
+  const suggestedMembers = buildSuggestedMembers({
+    team: recommendation.team,
+    skills,
+    priority,
+  });
+  const summary = buildRecommendationSummary({
+    team: suggestedMembers,
+    recommendation,
+    skills,
+  });
+
+  const [session] = await aiTeamBuildSessionModel.create([
+    {
+      owner: req.user._id,
+      sourceType: "job",
+      sourceId: job._id,
+      projectTitle: job.title,
+      requiredSkills: skills,
+      teamSize,
+      priority,
+      budget,
+      matchScore: summary.avgMatch,
+      readinessPercent: summary.readiness,
+      recommendationText: summary.recommendationText,
+      notes,
+      suggestedMembers,
+      recentActivity: [
+        {
+          type: "recommendation",
+          title: "AI job recommendation generated",
+          details: `Created ${suggestedMembers.length} suggested members for job ${job.title}.`,
+        },
+      ],
+    },
+  ]);
+
   return successResponse({
     res,
     message: "job-based team recommendation generated successfully",
     data: {
+      session: toSessionPayload(session),
       job: {
         jobId: job._id,
         title: job.title,
@@ -429,3 +670,312 @@ export const recommendTeamFromJob = asyncHandeler(async (req, res, next) => {
   });
 });
 
+export const getTeamBuilderSession = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const session = await findSessionOrThrow({
+    sessionId: req.params.sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  return successResponse({
+    res,
+    message: "team builder session fetched successfully",
+    data: {
+      session: toSessionPayload(session),
+    },
+  });
+});
+
+export const regenerateTeamBuilderSession = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const session = await findSessionOrThrow({
+    sessionId: req.params.sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  const candidates = await getCandidatePool({
+    onlyAvailable: true,
+    limit: 300,
+  });
+
+  const recommendation = buildTeamRecommendation({
+    candidates,
+    skills: session.requiredSkills || [],
+    budget: Number(session.budget || 0),
+    teamSize: Number(session.teamSize || 3),
+    priority: normalizePriority(session.priority),
+  });
+
+  const suggestedMembers = buildSuggestedMembers({
+    team: recommendation.team,
+    skills: session.requiredSkills || [],
+    priority: normalizePriority(session.priority),
+  });
+  const summary = buildRecommendationSummary({
+    team: suggestedMembers,
+    recommendation,
+    skills: session.requiredSkills || [],
+  });
+
+  const updatedSession = await aiTeamBuildSessionModel.findOneAndUpdate(
+    { _id: session._id, owner: req.user._id },
+    {
+      suggestedMembers,
+      matchScore: summary.avgMatch,
+      readinessPercent: summary.readiness,
+      recommendationText: summary.recommendationText,
+      notes: buildNotes({
+        priority: session.priority,
+        requestedSize: session.teamSize,
+        finalSize: recommendation.team.length,
+        budget: session.budget,
+        totalWeeklyCost: recommendation.totalWeeklyCost,
+        missingSkills: recommendation.missingSkills,
+      }),
+      recentActivity: pushSessionActivity(
+        session,
+        "Recommendation regenerated",
+        `AI regenerated lineup for ${session.projectTitle || "team builder"}.`,
+        "refresh"
+      ),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return successResponse({
+    res,
+    message: "team builder session regenerated successfully",
+    data: {
+      session: toSessionPayload(updatedSession),
+    },
+  });
+});
+
+export const acceptSuggestedMember = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const { sessionId, developerId } = req.params;
+  const session = await findSessionOrThrow({
+    sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  const nextMembers = (session.suggestedMembers || []).map((member) => ({
+    ...(typeof member.toObject === "function" ? member.toObject() : member),
+    accepted: String(member.developer) === String(developerId) ? true : member.accepted,
+  }));
+
+  const updatedSession = await aiTeamBuildSessionModel.findOneAndUpdate(
+    { _id: sessionId, owner: req.user._id },
+    {
+      suggestedMembers: nextMembers,
+      recentActivity: pushSessionActivity(
+        session,
+        "Candidate accepted",
+        "A suggested member was accepted into the proposed lineup.",
+        "accept"
+      ),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return successResponse({
+    res,
+    message: "suggested member accepted successfully",
+    data: {
+      session: toSessionPayload(updatedSession),
+    },
+  });
+});
+
+export const replaceSuggestedMember = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const { sessionId, developerId } = req.params;
+  const { preferredSkill = "" } = req.body;
+
+  const session = await findSessionOrThrow({
+    sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  const currentMembers = session.suggestedMembers || [];
+  const targetMember = currentMembers.find(
+    (member) => String(member.developer) === String(developerId)
+  );
+
+  if (!targetMember) {
+    return next(new Error("suggested member not found", { cause: 404 }));
+  }
+
+  const excludedIds = currentMembers.map((member) => member.developer);
+  const candidatePool = (await getCandidatePool({
+    skill: preferredSkill || targetMember.matchedSkills?.[0] || "",
+    onlyAvailable: true,
+    limit: 300,
+  })).filter((candidate) => !excludedIds.some((id) => String(id) === String(candidate.id)));
+
+  if (!candidatePool.length) {
+    return next(new Error("no replacement candidates available", { cause: 404 }));
+  }
+
+  const replacement = buildSuggestedMembers({
+    team: [candidatePool[0]],
+    skills: session.requiredSkills || [],
+    priority: normalizePriority(session.priority),
+  })[0];
+
+  const nextMembers = currentMembers.map((member) =>
+    String(member.developer) === String(developerId) ? replacement : member
+  );
+
+  const pseudoRecommendation = {
+    team: nextMembers,
+    missingSkills: [],
+  };
+  const summary = buildRecommendationSummary({
+    team: nextMembers,
+    recommendation: pseudoRecommendation,
+    skills: session.requiredSkills || [],
+  });
+
+  const updatedSession = await aiTeamBuildSessionModel.findOneAndUpdate(
+    { _id: sessionId, owner: req.user._id },
+    {
+      suggestedMembers: nextMembers,
+      matchScore: summary.avgMatch,
+      readinessPercent: summary.readiness,
+      recommendationText: summary.recommendationText,
+      recentActivity: pushSessionActivity(
+        session,
+        "Candidate replaced",
+        `Replaced ${targetMember.name} with ${replacement.name}.`,
+        "replace"
+      ),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return successResponse({
+    res,
+    message: "suggested member replaced successfully",
+    data: {
+      session: toSessionPayload(updatedSession),
+    },
+  });
+});
+
+export const finalizeSuggestedTeam = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const session = await findSessionOrThrow({
+    sessionId: req.params.sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  const acceptedMembers = (session.suggestedMembers || []).filter((member) => member.accepted);
+  const finalMembers = acceptedMembers.length ? acceptedMembers : session.suggestedMembers || [];
+
+  if (session.sourceType === "project" && session.sourceId) {
+    const project = await projectModel.findOne({
+      _id: session.sourceId,
+      client: req.user._id,
+    });
+
+    if (project) {
+      const nextTeamMembers = finalMembers.map((member) => ({
+        user: member.developer,
+        name: member.name,
+        role: member.track,
+        level: member.level,
+        status: member.availabilityLabel === "immediate" ? "online" : "offline",
+      }));
+
+      await projectModel.updateOne(
+        { _id: project._id },
+        {
+          $set: {
+            teamMembers: nextTeamMembers,
+            teamSize: nextTeamMembers.length,
+          },
+          $push: {
+            activities: {
+              type: "team",
+              title: "AI team approved",
+              details: `Approved ${nextTeamMembers.length} suggested members.`,
+              actorName: req.user.email || "Project Owner",
+            },
+          },
+        }
+      );
+    }
+  }
+
+  const updatedSession = await aiTeamBuildSessionModel.findOneAndUpdate(
+    { _id: session._id, owner: req.user._id },
+    {
+      status: "approved",
+      suggestedMembers: finalMembers,
+      recentActivity: pushSessionActivity(
+        session,
+        "Suggested team approved",
+        `Finalized ${finalMembers.length} members.`,
+        "approve"
+      ),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return successResponse({
+    res,
+    message: "suggested team finalized successfully",
+    data: {
+      session: toSessionPayload(updatedSession),
+    },
+  });
+});
+
+export const rejectSuggestedTeam = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const session = await findSessionOrThrow({
+    sessionId: req.params.sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  const updatedSession = await aiTeamBuildSessionModel.findOneAndUpdate(
+    { _id: session._id, owner: req.user._id },
+    {
+      status: "rejected",
+      recentActivity: pushSessionActivity(
+        session,
+        "Suggested team rejected",
+        "The generated lineup was rejected by the user.",
+        "reject"
+      ),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return successResponse({
+    res,
+    message: "suggested team rejected successfully",
+    data: {
+      session: toSessionPayload(updatedSession),
+    },
+  });
+});

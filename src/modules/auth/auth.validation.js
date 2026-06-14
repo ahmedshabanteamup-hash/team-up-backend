@@ -111,6 +111,12 @@ export const loginWithGmail = {
     .object()
     .keys({
       idToken: joi.string().required(),
+      role: joi.string().valid(roleEnum.client, roleEnum.developer, roleEnum.company).optional(),
+      fullName: joi.string().min(2).max(100).optional(),
+      skills: joi.array().items(joi.string()).optional(),
+      companyName: joi.string().min(2).max(100).optional(),
+      companySize: joi.string().min(1).max(100).optional(),
+      industry: joi.string().allow("").optional(),
     })
     .required()
     .options({ allowUnknown: false }),

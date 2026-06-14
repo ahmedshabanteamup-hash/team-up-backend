@@ -4,7 +4,9 @@
   "main": "./src/index.js",
   "type": "module",
   "scripts": {
-    "start:dev": "node --watch ./src/index.js"
+    "dev": "node --watch ./src/index.js",
+    "start:dev": "node --watch ./src/index.js",
+    "start": "node ./src/index.js"
   },
   "keywords": [],
   "author": "",

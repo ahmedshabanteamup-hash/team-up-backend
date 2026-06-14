@@ -1,7 +1,7 @@
 
 import { Router } from "express";
-import { authentication } from "../../middleware/authentication.middleware.js";
-import { validation } from "../../middleware/validation.middleware.js";
+import { authentication } from "../../middelware/authentication.middelware.js";
+import { validation } from "../../middelware/validation.middelware.js";
 import * as clientService from "./client.service.js";
 import * as validators from "./client.validation.js";
 
@@ -26,6 +26,12 @@ router.patch(
   authentication(),
   validation(validators.updateClientProfile),
   clientService.updateClientProfile
+);
+
+router.get(
+  "/account-summary",
+  authentication(),
+  clientService.getClientAccountSummary
 );
 
 

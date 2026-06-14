@@ -20,6 +20,12 @@ const jobSchema = new Schema(
       required: true,
     },
 
+    requirements: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     type: {
       type: String,
       enum: ["full-time", "part-time", "contract"],
@@ -74,6 +80,29 @@ const jobSchema = new Schema(
       trim: true,
     },
 
+    experienceLevel: {
+      type: String,
+      enum: ["junior", "mid", "senior"],
+      default: null,
+    },
+
+    teamSize: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
+
+    deadline: {
+      type: Date,
+      default: null,
+    },
+
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
+    },
+
     applicationsCount: {
       type: Number,
       default: 0,
@@ -83,6 +112,13 @@ const jobSchema = new Schema(
       type: String,
       enum: ["active", "closed"],
       default: "active",
+      index: true,
+    },
+
+    publicationStatus: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
       index: true,
     },
   },

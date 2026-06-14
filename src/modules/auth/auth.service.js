@@ -71,6 +71,47 @@ const verifyGoogleAccount = async ({ idToken }) => {
   return ticket.getPayload();
 };
 
+const reconcileOAuthUserRole = async ({
+  user,
+  requestedRole,
+  fullName = "",
+  skills = [],
+  companyName = "",
+  companySize = "",
+  industry = "",
+}) => {
+  if (!user || !requestedRole || user.role === requestedRole) {
+    return user;
+  }
+
+  const canUpgradeFromClient =
+    user.role === roleEnum.client &&
+    [roleEnum.developer, roleEnum.company].includes(requestedRole);
+
+  if (!canUpgradeFromClient) {
+    return user;
+  }
+
+  const updatedUser = await dbService.findOneAndUpdate({
+    model: userModel,
+    filter: { _id: user._id },
+    data: { role: requestedRole },
+  });
+
+  await ensureProfileForRole({
+    role: requestedRole,
+    userId: user._id,
+    fullName,
+    servicesWanted: [],
+    skills,
+    companyName,
+    companySize,
+    industry,
+  });
+
+  return updatedUser || user;
+};
+
 export const signup = asyncHandeler(async (req, res, next) => {
   const {
     role,
@@ -178,7 +219,15 @@ export const sendForgotPassword = asyncHandeler(async (req, res, next) => {
 });
 
 export const signupWithGmail = asyncHandeler(async (req, res, next) => {
-  const { idToken } = req.body;
+  const {
+    idToken,
+    role = roleEnum.client,
+    fullName = "",
+    skills = [],
+    companyName = "",
+    companySize = "",
+    industry = "",
+  } = req.body;
   const payload = await verifyGoogleAccount({ idToken });
   const email = payload?.email;
   const name = payload?.name || "Google User";
@@ -205,7 +254,7 @@ export const signupWithGmail = asyncHandeler(async (req, res, next) => {
         {
           email,
           password: generatedPassword,
-          role: roleEnum.client,
+          role,
           confirmEmail: true,
         },
       ],
@@ -213,10 +262,25 @@ export const signupWithGmail = asyncHandeler(async (req, res, next) => {
     user = newUser;
 
     await ensureProfileForRole({
-      role: roleEnum.client,
+      role,
       userId: user._id,
-      fullName: name,
+      fullName: fullName || name,
       servicesWanted: [],
+      skills,
+      companyName,
+      companySize,
+      industry,
+    });
+  }
+  else {
+    user = await reconcileOAuthUserRole({
+      user,
+      requestedRole: role,
+      fullName: fullName || name,
+      skills,
+      companyName,
+      companySize,
+      industry,
     });
   }
 
@@ -231,7 +295,15 @@ export const signupWithGmail = asyncHandeler(async (req, res, next) => {
 });
 
 export const loginWithGmail = asyncHandeler(async (req, res, next) => {
-  const { idToken } = req.body;
+  const {
+    idToken,
+    role,
+    fullName = "",
+    skills = [],
+    companyName = "",
+    companySize = "",
+    industry = "",
+  } = req.body;
   const payload = await verifyGoogleAccount({ idToken });
   const email = payload?.email;
   const name = payload?.name || "Google User";
@@ -258,7 +330,7 @@ export const loginWithGmail = asyncHandeler(async (req, res, next) => {
         {
           email,
           password: generatedPassword,
-          role: roleEnum.client,
+          role: role || roleEnum.client,
           confirmEmail: true,
         },
       ],
@@ -266,11 +338,35 @@ export const loginWithGmail = asyncHandeler(async (req, res, next) => {
     user = newUser;
 
     await ensureProfileForRole({
-      role: roleEnum.client,
+      role: role || roleEnum.client,
       userId: user._id,
-      fullName: name,
+      fullName: fullName || name,
       servicesWanted: [],
+      skills,
+      companyName,
+      companySize,
+      industry,
     });
+  }
+  else {
+    user = await reconcileOAuthUserRole({
+      user,
+      requestedRole: role,
+      fullName: fullName || name,
+      skills,
+      companyName,
+      companySize,
+      industry,
+    });
+  }
+
+  if (role && user.role !== role) {
+    return next(
+      new Error(
+        `account role mismatch: this account is registered as ${user.role}, not ${role}`,
+        { cause: 403 }
+      )
+    );
   }
 
   const credentials = await generateLoginCredentials({ user });
@@ -282,4 +378,3 @@ export const loginWithGmail = asyncHandeler(async (req, res, next) => {
     data: { credentials },
   });
 });
-

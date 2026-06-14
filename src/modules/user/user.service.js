@@ -17,6 +17,7 @@ import {
   generateHash,
 } from "../../utils/security/hash.security.js";
 import { tokenModel } from "../../DB/models/token.model.js";
+import { clientModel } from "../../DB/models/client.model.js";
 
 
 export const profile = asyncHandeler(async (req, res, next) => {
@@ -143,7 +144,35 @@ export const deleteAccount = asyncHandeler(async (req, res, next) => {
 
 
 export const profileImage = asyncHandeler(async (req, res, next) => {
-  return  successResponse({ res, data: { file : req.file} })
+  if (!req.file) {
+    return next(new Error("image is required", { cause: 400 }));
+  }
+
+  const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+  const profile = await dbService.findOneAndUpdate({
+    model: clientModel,
+    filter: { user: req.user._id },
+    data: {
+      profileImage: {
+        url: imageUrl,
+        publicId: req.file.filename,
+      },
+    },
+  });
+
+  if (!profile) {
+    return next(new Error("client profile not found", { cause: 404 }));
+  }
+
+  return successResponse({
+    res,
+    message: "profile image updated successfully",
+    data: {
+      profileImage: profile.profileImage,
+      profile,
+    },
+  });
 });
 
 export const updateBasicInfo = asyncHandeler(async (req, res, next) => {

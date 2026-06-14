@@ -6,12 +6,17 @@ import express from "express";
 import authcontroller from "./modules/auth/auth.controller.js";
 import usercontroller from "./modules/user/user.controller.js";
 import developercontroller from "./modules/developer/developer.controller.js";
+import * as developerService from "./modules/developer/developer.service.js";
+import * as developerValidators from "./modules/developer/developer.validation.js";
+import clientController from "./modules/client/client.controller.js";
 import billingController from "./modules/payment/billing.controller.js";
 import projectController from "./modules/projects/project.controller.js";
 import ratingController from "./modules/rating/rating.controller.js";
 import companyController from "./modules/companyProfile/company.controller.js";
 import landingController from "./modules/landing/landing.controller.js";
 import aiController from "./modules/ai/ai.controller.js";
+import { authentication } from "./middelware/authentication.middelware.js";
+import { validation } from "./middelware/validation.middelware.js";
 import connectDB from "./DB/connection.db.js";
 import { globalErorrHandeling } from "./utils/response.js";
 import cors from "cors";
@@ -25,11 +30,26 @@ const bootsrap = async () => {
 
   app.use(express.json());
   app.use(cors());
+  app.use("/uploads", express.static(path.resolve("./src/uploads")));
 
   app.get("/", (req, res, next) => res.json({ message: "hello ahmed" }));
   app.use("/auth", authcontroller);
   app.use("/user", usercontroller);
   app.use("/developer", developercontroller);
+  app.use("/developers", developercontroller);
+  app.get(
+    "/jobs",
+    authentication(),
+    validation(developerValidators.browseDeveloperProjects),
+    developerService.browseDeveloperProjects
+  );
+  app.get(
+    "/projects",
+    authentication(),
+    validation(developerValidators.browseDeveloperProjects),
+    developerService.browseDeveloperProjects
+  );
+  app.use("/client", clientController);
   app.use("/billing", billingController);
   app.use("/project", projectController);
   app.use("/rating", ratingController);

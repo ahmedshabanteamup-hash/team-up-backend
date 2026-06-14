@@ -123,9 +123,81 @@ export const previewJobPost = {
     title: joi.string().min(3).max(150).required(),
     description: joi.string().min(10).required(),
     skills: joi.array().items(joi.string().min(1)).min(1).required(),
+    teamSize: joi.number().integer().min(1).required(),
     budget: joi.number().min(0).required(),
-    estimatedDuration: joi.string().min(1).max(100).required(),
+    deadline: joi.date().required(),
+    estimatedDuration: joi.string().min(1).max(100).allow("").optional(),
     workType: joi.string().valid("freelance-contract", "full-time").required(),
+    priority: joi.string().valid("low", "medium", "high").required(),
     workMode: joi.string().valid("remote", "onsite", "hybrid").optional(),
+  }),
+};
+
+export const jobIdParam = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+  }),
+};
+
+export const updateJobDraft = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+  }),
+  body: joi.object({
+    title: joi.string().min(3).max(150).optional(),
+    description: joi.string().min(10).optional(),
+    skills: joi.array().items(joi.string().min(1)).min(1).optional(),
+    teamSize: joi.number().integer().min(1).optional(),
+    budget: joi.number().min(0).optional(),
+    deadline: joi.date().optional(),
+    estimatedDuration: joi.string().min(1).max(100).allow("").optional(),
+    workType: joi.string().valid("freelance-contract", "full-time").optional(),
+    priority: joi.string().valid("low", "medium", "high").optional(),
+    workMode: joi.string().valid("remote", "onsite", "hybrid").optional(),
+  }).min(1),
+};
+
+export const myJobsQuery = {
+  query: joi.object({
+    page: joi.number().integer().min(1).optional(),
+    limit: joi.number().integer().min(1).max(50).optional(),
+  }),
+};
+
+export const updateMyJobPost = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+  }),
+  body: joi.object({
+    title: joi.string().min(3).max(150).optional(),
+    description: joi.string().min(10).optional(),
+    skills: joi.array().items(joi.string().min(1)).min(1).optional(),
+    teamSize: joi.number().integer().min(1).optional(),
+    budget: joi.number().min(0).optional(),
+    deadline: joi.date().optional(),
+    estimatedDuration: joi.string().min(1).max(100).allow("").optional(),
+    workType: joi.string().valid("freelance-contract", "full-time").optional(),
+    priority: joi.string().valid("low", "medium", "high").optional(),
+    workMode: joi.string().valid("remote", "onsite", "hybrid").optional(),
+  }).min(1),
+};
+
+export const myJobApplicantsQuery = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+  }),
+  query: joi.object({
+    page: joi.number().integer().min(1).optional(),
+    limit: joi.number().integer().min(1).max(50).optional(),
+  }),
+};
+
+export const updateApplicantStatus = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+    applicationId: generalFields.id.required(),
+  }),
+  body: joi.object({
+    status: joi.string().valid("accepted", "rejected").required(),
   }),
 };

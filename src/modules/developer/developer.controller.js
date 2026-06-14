@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authentication } from "../../middelware/authentication.middelware.js";
 import { validation } from "../../middelware/validation.middelware.js";
+import { localFileUpload } from "../../utils/multer/local.maulter.js";
 import * as developerservice from "./developer.service.js";
 import * as validators from "./developer.validation.js";
 
@@ -12,6 +13,26 @@ router.get("/work-history", authentication(), developerservice.getWorkHistory);
 router.get("/rank-progress", authentication(), developerservice.getRankProgress);
 router.get("/applications", authentication(), developerservice.getMyApplications);
 router.get("/recommended-jobs", authentication(), developerservice.getRecommendedJobs);
+router.get(
+  "/projects",
+  authentication(),
+  validation(validators.browseDeveloperProjects),
+  developerservice.browseDeveloperProjects
+);
+router.get(
+  "/browse-projects",
+  authentication(),
+  validation(validators.browseDeveloperProjects),
+  developerservice.browseDeveloperProjects
+);
+router.get(
+  "/jobs",
+  authentication(),
+  validation(validators.browseDeveloperProjects),
+  developerservice.browseDeveloperProjects
+);
+router.get("/skill-quiz/tracks", authentication(), developerservice.getSkillQuizTracks);
+router.get("/skill-quiz/current", authentication(), developerservice.getCurrentSkillQuizAttempt);
 
 router.post(
   "/profile",
@@ -25,6 +46,13 @@ router.patch(
   authentication(),
   validation(validators.updateDeveloperProfile),
   developerservice.updateDeveloperProfile
+);
+
+router.patch(
+  "/profile-image",
+  authentication(),
+  localFileUpload().single("image"),
+  developerservice.uploadDeveloperProfileImage
 );
 
 router.patch(
@@ -81,6 +109,27 @@ router.post(
   authentication(),
   validation(validators.applyToJob),
   developerservice.applyToJob
+);
+
+router.post(
+  "/skill-quiz/start",
+  authentication(),
+  validation(validators.startSkillQuiz),
+  developerservice.startSkillQuiz
+);
+
+router.patch(
+  "/skill-quiz/:attemptId/answer",
+  authentication(),
+  validation(validators.answerSkillQuizQuestion),
+  developerservice.answerSkillQuizQuestion
+);
+
+router.post(
+  "/skill-quiz/:attemptId/submit",
+  authentication(),
+  validation(validators.submitSkillQuiz),
+  developerservice.submitSkillQuiz
 );
 
 router.patch(

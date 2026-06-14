@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authentication } from "../../middelware/authentication.middelware.js";
 import { validation } from "../../middelware/validation.middelware.js";
+import { localFileUpload } from "../../utils/multer/local.maulter.js";
 import * as companyService from "./company.service.js";
 import * as validators from "./company.validation.js";
 
@@ -20,6 +21,13 @@ router.patch(
 );
 
 router.patch(
+  "/update-logo",
+  authentication(),
+  localFileUpload().single("image"),
+  companyService.updateCompanyLogo
+);
+
+router.patch(
   "/update-about",
   authentication(),
   validation(validators.updateCompanyAboutSchema),
@@ -36,6 +44,7 @@ router.post(
 router.get(
   "/jobs/my-posts",
   authentication(),
+  validation(validators.getMyJobPostsSchema),
   companyService.getMyJobPosts
 );
 
@@ -74,6 +83,27 @@ router.get(
   companyService.getJobApplicants
 );
 
+router.post(
+  "/jobs/:jobId/build-team",
+  authentication(),
+  validation(validators.buildTeamFromApplicantsSchema),
+  companyService.buildTeamFromApplicants
+);
+
+router.get(
+  "/applicants",
+  authentication(),
+  validation(validators.getCompanyApplicantsListSchema),
+  companyService.getCompanyApplicantsList
+);
+
+router.get(
+  "/developers/:developerId/profile",
+  authentication(),
+  validation(validators.developerIdParamSchema),
+  companyService.getDeveloperProfileForCompany
+);
+
 router.patch(
   "/applications/:applicationId/status",
   authentication(),
@@ -92,6 +122,13 @@ router.post(
   authentication(),
   validation(validators.createInterviewSchema),
   companyService.createInterview
+);
+
+router.patch(
+  "/interviews/:interviewId",
+  authentication(),
+  validation(validators.updateInterviewSchema),
+  companyService.updateInterview
 );
 
 export default router;
