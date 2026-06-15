@@ -12,11 +12,18 @@ export const logoutEnum = {
   satyLoggedIn: "satyLoggedIn",
 };
 
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
+
+export const getTokenExpirySeconds = (envKey) => {
+  const value = Number(process.env[envKey]);
+  return Number.isFinite(value) && value > 0 ? value : THIRTY_DAYS_IN_SECONDS;
+};
+
 export const generateToken = async ({
   payload = {},
   secret = process.env.ACCESS_USER_TOKEN_SIGNATURE,
   options = {
-    expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN),
+    expiresIn: getTokenExpirySeconds("ACCESS_TOKEN_EXPIRES_IN"),
   },
 } = {}) => jwt.sign(payload, secret, options);
 
@@ -156,7 +163,7 @@ export const generateLoginCredentials = async ({ user = {} } = {}) => {
     secret: signatures.accessSignature,
     options: {
       jwtid,
-      expiresIn: Number(process.env.ACCESS_TOKEN_EXPIRES_IN),
+      expiresIn: getTokenExpirySeconds("ACCESS_TOKEN_EXPIRES_IN"),
     },
   });
 
@@ -165,12 +172,12 @@ export const generateLoginCredentials = async ({ user = {} } = {}) => {
     secret: signatures.refreshSignature,
     options: {
       jwtid,
-      expiresIn: Number(process.env.REFRESH_TOKEN_EXPIRES_IN),
+      expiresIn: getTokenExpirySeconds("REFRESH_TOKEN_EXPIRES_IN"),
     },
   });
 
   const expiresAt = new Date(
-    Date.now() + Number(process.env.REFRESH_TOKEN_EXPIRES_IN) * 1000
+    Date.now() + getTokenExpirySeconds("REFRESH_TOKEN_EXPIRES_IN") * 1000
   );
   await DBService.create({
     model: tokenModel,

@@ -7,6 +7,7 @@ import {
 import {
   generateLoginCredentials,
   generateToken,
+  getTokenExpirySeconds,
   getSignatures,
   logoutEnum,
   signatureLevelEnum,
@@ -52,7 +53,7 @@ export const logout = asyncHandeler(async (req, res, next) => {
           {
             jti: req.decoded.jti,
             expiresIn:
-              req.decoded.iat + Number(process.env.REFRESH_TOKEN_EXPIRES_IN),
+              req.decoded.iat + getTokenExpirySeconds("REFRESH_TOKEN_EXPIRES_IN"),
             userId: req.decoded._id,
           },
         ],
