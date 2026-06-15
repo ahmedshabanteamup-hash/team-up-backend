@@ -1,5 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
+const clampPercentage = (value = 0) => Math.max(0, Math.min(Number(value) || 0, 100));
+
 const suggestedMemberSchema = new Schema(
   {
     developer: {
@@ -51,6 +53,8 @@ const suggestedMemberSchema = new Schema(
       type: Number,
       default: 0,
       min: 0,
+      max: 100,
+      set: clampPercentage,
     },
     matchedSkills: {
       type: [String],
@@ -138,12 +142,14 @@ const aiTeamBuildSessionSchema = new Schema(
       default: 0,
       min: 0,
       max: 100,
+      set: clampPercentage,
     },
     readinessPercent: {
       type: Number,
       default: 0,
       min: 0,
       max: 100,
+      set: clampPercentage,
     },
     recommendationText: {
       type: String,

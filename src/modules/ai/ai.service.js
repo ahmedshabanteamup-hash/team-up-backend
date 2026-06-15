@@ -24,6 +24,8 @@ const normalizePriority = (priority = "balanced") =>
 
 const normalizeSkill = (value = "") => String(value).trim().toLowerCase();
 
+const clampPercentage = (value = 0) => Math.max(0, Math.min(Math.round(Number(value) || 0), 100));
+
 const trackFromProfile = (profile) => {
   if (profile.title && profile.title.trim()) return profile.title.trim();
 
@@ -152,20 +154,17 @@ const buildAiReasoning = ({ candidate, requestedSkills = [], topPriority = "bala
 
 const buildRecommendationSummary = ({ team = [], recommendation, skills = [] }) => {
   const avgMatch = team.length
-    ? Math.round(
-        (team.reduce((sum, member) => sum + Number(member.score || 0), 0) / team.length) * 100
+    ? clampPercentage(
+        team.reduce((sum, member) => sum + clampPercentage(member.score), 0) / team.length
       )
     : 0;
 
-  const readiness = Math.min(
-    100,
-    Math.round(
+  const readiness = clampPercentage(
       avgMatch * 0.55 +
         (recommendation.missingSkills.length ? 15 : 30) +
         (team.filter((member) => member.availabilityLabel === "immediate").length /
           Math.max(team.length, 1)) *
           15
-    )
   );
 
   const recommendationText = `This team was selected because it provides ${recommendation.missingSkills.length ? "partial" : "strong"} skill coverage for the requested scope while keeping the lineup aligned with ${skills.join(", ") || "project requirements"}.`;
@@ -188,7 +187,7 @@ const buildSuggestedMembers = ({ team = [], skills = [], priority = "balanced" }
     hourRate: member.hourRate,
     hoursPerWeek: member.hoursPerWeek,
     weeklyCost: member.weeklyCost,
-    score: Math.round(Number(member.score || 0) * 100),
+    score: clampPercentage(Number(member.score || 0) * 100),
     matchedSkills: member.matchedSkills || [],
     accepted: false,
     aiReasoning: buildAiReasoning({
