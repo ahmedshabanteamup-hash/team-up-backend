@@ -15,6 +15,12 @@ router.post(
 );
 ///////////////////////////////////////////////////22222222222222222222
 router.get(
+  "/profile",
+  authentication(),
+  clientService.getMyClientProfile
+);
+
+router.get(
   "/my-profile",
   authentication(),                 // لازم عشان req.user
   clientService.getMyClientProfile  // اللوجيك كله جوه السيرفس

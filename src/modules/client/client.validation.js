@@ -14,12 +14,12 @@ export const createClientProfile = {
 ///////////////////////////////////////////////////////////
 export const updateClientProfile = {
   body: joi.object({
-    fullName: generalFields.fullName.optional(),
-    userName: joi.string().min(3).optional(),
-    phone: generalFields.phone.optional(),
-    country: joi.string().optional(),
+    fullName: joi.string().allow("").max(100).optional(),
+    userName: joi.string().allow("").min(3).optional(),
+    phone: joi.string().allow("").max(30).optional(),
+    country: joi.string().allow("").optional(),
     bio: joi.string().allow("").optional(),
     servicesWanted: joi.array().items(joi.string()).optional(),
     skills: joi.array().items(joi.string()).optional(),
-  }).required(),
+  }).unknown(true).required(),
 };

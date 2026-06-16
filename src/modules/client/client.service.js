@@ -44,6 +44,69 @@ const buildClientAccountSummary = async (userId) => {
   };
 };
 
+const ensureClientProfile = async (userId, defaults = {}) => {
+  const existing = await dbService.findOne({
+    model: clientModel,
+    filter: { user: userId },
+  });
+
+  if (existing) return existing;
+
+  const [profile] = await dbService.create({
+    model: clientModel,
+    data: [
+      {
+        user: userId,
+        fullName: defaults.fullName || defaults.email || "Client",
+        userName: defaults.userName || "",
+        phone: defaults.phone || "",
+        country: defaults.country || "",
+        bio: defaults.bio || "",
+        servicesWanted: defaults.servicesWanted || [],
+        skills: defaults.skills || [],
+      },
+    ],
+  });
+
+  return profile;
+};
+
+const buildClientProfileResponse = async (userId) => {
+  const user = await dbService.findOne({
+    model: userModel,
+    filter: { _id: userId },
+    select: "email role createdAt",
+  });
+
+  if (!user) return null;
+
+  const clientProfile = await ensureClientProfile(userId, {
+    email: user.email,
+  });
+  const accountSummary = await buildClientAccountSummary(userId);
+
+  return {
+    user,
+    clientProfile,
+    profile: {
+      clientId: clientProfile._id,
+      userId,
+      fullName: clientProfile.fullName,
+      userName: clientProfile.userName || "",
+      email: user.email,
+      phone: clientProfile.phone || "",
+      country: clientProfile.country || "",
+      bio: clientProfile.bio || "",
+      servicesWanted: clientProfile.servicesWanted || [],
+      skills: clientProfile.skills || [],
+      profileImage: clientProfile.profileImage?.url || "",
+      accountType: user.role,
+      ...accountSummary,
+    },
+    accountSummary,
+  };
+};
+
 export const createClientProfile = asyncHandeler(async (req, res, next) => {
   const userId = req.user._id;
   const {
@@ -98,34 +161,15 @@ export const getMyClientProfile = asyncHandeler(async (req, res, next) => {
     return next(new Error("not allowed", { cause: 403 }));
   }
 
-  const user = await dbService.findOne({
-    model: userModel,
-    filter: { _id: userId, confirmEmail: { $exists: true } },
-    select: "email createdAt",
-  });
+  const payload = await buildClientProfileResponse(userId);
 
-  if (!user) {
+  if (!payload) {
     return next(new Error("invalid account", { cause: 404 }));
   }
 
-  const clientProfile = await dbService.findOne({
-    model: clientModel,
-    filter: { user: userId },
-  });
-
-  if (!clientProfile) {
-    return next(new Error("client profile not found", { cause: 404 }));
-  }
-
-  const accountSummary = await buildClientAccountSummary(userId);
-
   return successResponse({
     res,
-    data: {
-      user,
-      clientProfile,
-      accountSummary,
-    },
+    data: payload,
   });
 });
 
@@ -145,14 +189,7 @@ export const updateClientProfile = asyncHandeler(async (req, res, next) => {
     return next(new Error("not allowed", { cause: 403 }));
   }
 
-  const profile = await dbService.findOne({
-    model: clientModel,
-    filter: { user: userId },
-  });
-
-  if (!profile) {
-    return next(new Error("client profile not found", { cause: 404 }));
-  }
+  await ensureClientProfile(userId, req.body);
 
   const updatedProfile = await dbService.findOneAndUpdate({
     model: clientModel,
@@ -168,10 +205,15 @@ export const updateClientProfile = asyncHandeler(async (req, res, next) => {
     },
   });
 
+  const payload = await buildClientProfileResponse(userId);
+
   return successResponse({
     res,
     message: "Client profile updated successfully",
-    data: { profile: updatedProfile },
+    data: {
+      ...payload,
+      updatedProfile,
+    },
   });
 });
 
