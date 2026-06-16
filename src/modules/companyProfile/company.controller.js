@@ -91,6 +91,20 @@ router.post(
 );
 
 router.get(
+  "/team-builder/developers",
+  authentication(),
+  validation(validators.getBuildTeamDevelopersSchema),
+  companyService.getBuildTeamDevelopers
+);
+
+router.post(
+  "/team-builder/confirm",
+  authentication(),
+  validation(validators.confirmManualTeamSchema),
+  companyService.confirmManualTeam
+);
+
+router.get(
   "/applicants",
   authentication(),
   validation(validators.getCompanyApplicantsListSchema),
@@ -115,6 +129,31 @@ router.get(
   "/interviews",
   authentication(),
   companyService.getMyInterviews
+);
+
+router.get(
+  "/interviews/upcoming",
+  authentication(),
+  companyService.getUpcomingInterviews
+);
+
+router.get(
+  "/interviews/past",
+  authentication(),
+  companyService.getPastInterviews
+);
+
+router.get(
+  "/interviews/schedule-form",
+  authentication(),
+  companyService.getScheduleInterviewForm
+);
+
+router.get(
+  "/interviews/:interviewId",
+  authentication(),
+  validation(validators.interviewIdParamSchema),
+  companyService.getInterviewDetails
 );
 
 router.post(

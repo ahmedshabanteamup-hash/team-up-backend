@@ -45,6 +45,19 @@ export const sessionIdParamSchema = {
     .required(),
 };
 
+export const sessionPageQuerySchema = {
+  params: joi
+    .object({
+      sessionId: generalFields.id.required(),
+    })
+    .required(),
+  query: joi
+    .object({
+      search: joi.string().allow("").max(100).optional(),
+    })
+    .required(),
+};
+
 export const sessionMemberParamSchema = {
   params: joi
     .object({

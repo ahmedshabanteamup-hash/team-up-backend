@@ -23,14 +23,20 @@ const interviewSchema = new Schema(
 
     interviewType: {
       type: String,
-      enum: ["technical", "hr", "final"],
+      enum: ["technical", "hr", "final", "first-round", "technical-assessment", "culture-fit"],
       default: "technical",
     },
 
     mode: {
       type: String,
-      enum: ["remote", "onsite", "hybrid"],
+      enum: ["remote", "online", "onsite", "hybrid"],
       default: "onsite",
+    },
+
+    meetingLink: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     scheduledAt: {
@@ -41,8 +47,15 @@ const interviewSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["upcoming", "passed", "cancelled"],
+      enum: ["upcoming", "scheduled", "passed", "cancelled"],
       default: "upcoming",
+      index: true,
+    },
+
+    resultStatus: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
       index: true,
     },
 

@@ -19,6 +19,13 @@ router.get(
   aiService.getTeamBuilderSession
 );
 
+router.get(
+  "/team-builder/sessions/:sessionId/page",
+  authentication(),
+  validation(validators.sessionPageQuerySchema),
+  aiService.getAutoSuggestTeamPage
+);
+
 router.post(
   "/team-builder/recommend",
   authentication(),

@@ -62,12 +62,36 @@ export const updateCompanyAboutSchema = {
 export const createInterviewSchema = {
   body: joi
     .object({
-      candidateName: joi.string().min(2).max(100).required(),
+      candidateName: joi.string().min(2).max(100).optional(),
+      developerName: joi.string().min(2).max(100).optional(),
       jobTitle: joi.string().min(2).max(100).required(),
-      interviewType: joi.string().valid("technical", "hr", "final").optional(),
-      mode: joi.string().valid("remote", "onsite", "hybrid").optional(),
-      scheduledAt: joi.date().required(),
+      interviewType: joi
+        .string()
+        .valid(
+          "technical",
+          "hr",
+          "final",
+          "first-round",
+          "technical-assessment",
+          "culture-fit",
+          "online",
+          "onsite",
+          "Online",
+          "Onsite"
+        )
+        .optional(),
+      mode: joi
+        .string()
+        .valid("remote", "online", "onsite", "hybrid", "Video Call", "Cairo Office")
+        .optional(),
+      meetingLink: joi.string().uri().allow("").optional(),
+      notes: joi.string().allow("").max(2000).optional(),
+      scheduledAt: joi.date().optional(),
+      date: joi.date().optional(),
+      time: joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
     })
+    .or("candidateName", "developerName")
+    .or("scheduledAt", "date")
     .required(),
 };
 
@@ -79,13 +103,43 @@ export const updateInterviewSchema = {
     .required(),
   body: joi
     .object({
-      status: joi.string().valid("upcoming", "passed", "cancelled").optional(),
+      status: joi.string().valid("upcoming", "scheduled", "passed", "cancelled").optional(),
+      resultStatus: joi.string().valid("pending", "accepted", "rejected").optional(),
       feedback: joi.string().allow("").max(2000).optional(),
+      notes: joi.string().allow("").max(2000).optional(),
       scheduledAt: joi.date().optional(),
-      mode: joi.string().valid("remote", "onsite", "hybrid").optional(),
-      interviewType: joi.string().valid("technical", "hr", "final").optional(),
+      date: joi.date().optional(),
+      time: joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+      mode: joi
+        .string()
+        .valid("remote", "online", "onsite", "hybrid", "Video Call", "Cairo Office")
+        .optional(),
+      meetingLink: joi.string().uri().allow("").optional(),
+      interviewType: joi
+        .string()
+        .valid(
+          "technical",
+          "hr",
+          "final",
+          "first-round",
+          "technical-assessment",
+          "culture-fit",
+          "online",
+          "onsite",
+          "Online",
+          "Onsite"
+        )
+        .optional(),
     })
     .min(1)
+    .required(),
+};
+
+export const interviewIdParamSchema = {
+  params: joi
+    .object({
+      interviewId: generalFields.id.required(),
+    })
     .required(),
 };
 
@@ -215,6 +269,32 @@ export const buildTeamFromApplicantsSchema = {
     .object({
       applicationIds: joi.array().items(generalFields.id).min(1).optional(),
       closeJob: joi.boolean().optional(),
+    })
+    .required(),
+};
+
+export const getBuildTeamDevelopersSchema = {
+  query: joi
+    .object({
+      page: joi.number().min(1).optional(),
+      limit: joi.number().min(1).max(100).optional(),
+      search: joi.string().allow("").max(100).optional(),
+      skill: joi.string().allow("").max(100).optional(),
+      rank: joi.string().allow("").max(50).optional(),
+      availability: joi.string().valid("all", "available", "busy", "offline").optional(),
+      selectedDeveloperIds: joi.string().allow("").optional(),
+    })
+    .required(),
+};
+
+export const confirmManualTeamSchema = {
+  body: joi
+    .object({
+      developerIds: joi.array().items(generalFields.id).min(1).required(),
+      jobId: generalFields.id.optional(),
+      closeJob: joi.boolean().optional(),
+      projectTitle: joi.string().min(2).max(120).allow("").optional(),
+      description: joi.string().allow("").max(2000).optional(),
     })
     .required(),
 };

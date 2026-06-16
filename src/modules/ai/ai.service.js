@@ -247,6 +247,141 @@ const toSessionPayload = (session) => ({
   recentActivity: session.recentActivity || [],
 });
 
+const initialsFromName = (name = "") =>
+  String(name)
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "TM";
+
+const toLineupCard = (member = {}, sessionId = "") => ({
+  developerId: member.developer,
+  initials: initialsFromName(member.name),
+  name: member.name,
+  role: member.track,
+  level: member.level,
+  yearsExperience: member.yearsExperience,
+  experienceLabel: `${member.yearsExperience || 0} yrs exp`,
+  availability: member.availabilityLabel,
+  skills: member.matchedSkills || [],
+  matchScore: member.score,
+  accepted: member.accepted,
+  aiReasoning: member.aiReasoning,
+  actions: {
+    accept: `/ai/team-builder/sessions/${sessionId}/members/${member.developer}/accept`,
+    replace: `/ai/team-builder/sessions/${sessionId}/members/${member.developer}/replace`,
+    viewProfile: `/company/developers/${member.developer}/profile`,
+  },
+});
+
+const toActivityItem = (item = {}) => {
+  const typeMap = {
+    recommendation: "AI",
+    refresh: "AI",
+    replace: "AI",
+    accept: "APPLICANTS",
+    approve: "PROJECTS",
+    reject: "PROJECTS",
+    interview: "INTERVIEWS",
+    message: "MESSAGES",
+  };
+
+  return {
+    activityId: item._id,
+    type: item.type || "update",
+    category: typeMap[item.type] || String(item.type || "UPDATE").toUpperCase(),
+    title: item.title,
+    details: item.details,
+    createdAt: item.createdAt,
+  };
+};
+
+const buildWhyThisTeamWorks = (session) => [
+  {
+    key: "roleCoverage",
+    title: "Role Coverage",
+    description: `Core roles are covered by ${(session.suggestedMembers || [])
+      .map((member) => member.track)
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(", ") || "the suggested lineup"}.`,
+  },
+  {
+    key: "seniorityBalance",
+    title: "Seniority Balance",
+    description:
+      "Mix of senior and mid-level talent supports mentorship and sustainable delivery pace.",
+  },
+  {
+    key: "availabilityMatch",
+    title: "Availability Match",
+    description:
+      "Availability labels are considered so onboarding can start with minimal delay.",
+  },
+  {
+    key: "projectReadiness",
+    title: "Project Readiness",
+    description:
+      "Skill overlap and complementary expertise support a fast project kickoff.",
+  },
+];
+
+const toAutoSuggestTeamPagePayload = (session, search = "") => {
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+  const lineup = (session.suggestedMembers || [])
+    .filter((member) => {
+      if (!normalizedSearch) return true;
+      return [
+        member.name,
+        member.track,
+        member.level,
+        ...(member.matchedSkills || []),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
+    })
+    .map((member) => toLineupCard(member, session._id));
+
+  return {
+    pageTitle: "Auto Suggest Team",
+    pageSubtitle: "AI-generated complete team recommendation for your project.",
+    search: {
+      placeholder: "Search team members...",
+      value: search || "",
+      endpoint: `/ai/team-builder/sessions/${session._id}/page?search=`,
+    },
+    recommendation: {
+      title: "AI Team Recommendation",
+      description: session.recommendationText,
+      matchScore: session.matchScore,
+      matchLabel: `${session.matchScore}% Match Score`,
+      status: session.status,
+    },
+    suggestedLineup: lineup,
+    projectReadiness: {
+      percentage: session.readinessPercent,
+      label: `${session.readinessPercent}%`,
+      statusLabel: session.status === "approved" ? "Approved" : "Pre-approval",
+      description:
+        "Approving this team will bring readiness close to 100% and start onboarding workflows.",
+    },
+    recentActivity: (session.recentActivity || []).map(toActivityItem),
+    whyThisTeamWorks: buildWhyThisTeamWorks(session),
+    actions: {
+      regenerateTeam: `/ai/team-builder/sessions/${session._id}/regenerate`,
+      reject: `/ai/team-builder/sessions/${session._id}/reject`,
+      approveTeam: `/ai/team-builder/sessions/${session._id}/finalize`,
+    },
+    links: {
+      session: `/ai/team-builder/sessions/${session._id}`,
+      page: `/ai/team-builder/sessions/${session._id}/page`,
+      candidates: "/ai/team-builder/candidates",
+    },
+  };
+};
+
 const findSessionOrThrow = async ({ sessionId, ownerId, next }) => {
   const session = await aiTeamBuildSessionModel.findOne({
     _id: sessionId,
@@ -685,6 +820,23 @@ export const getTeamBuilderSession = asyncHandeler(async (req, res, next) => {
     data: {
       session: toSessionPayload(session),
     },
+  });
+});
+
+export const getAutoSuggestTeamPage = asyncHandeler(async (req, res, next) => {
+  if (!ensureBuilderAccess(req, next)) return;
+
+  const session = await findSessionOrThrow({
+    sessionId: req.params.sessionId,
+    ownerId: req.user._id,
+    next,
+  });
+  if (!session) return;
+
+  return successResponse({
+    res,
+    message: "auto suggest team page fetched successfully",
+    data: toAutoSuggestTeamPagePayload(session, req.query.search || ""),
   });
 });
 
