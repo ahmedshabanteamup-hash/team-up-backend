@@ -17,6 +17,14 @@ const ensureCompanyRole = (req, next) => {
   return null;
 };
 
+const ensureCompanyOrClientRole = (req, next) => {
+  if (![roleEnum.company, roleEnum.client].includes(req.user?.role)) {
+    return next(new Error("only company or client can access this endpoint", { cause: 403 }));
+  }
+
+  return null;
+};
+
 const getOwnedJobOrThrow = async ({ companyId, jobId, next }) => {
   const job = await dbService.findOne({
     model: jobModel,
@@ -1180,7 +1188,7 @@ export const buildTeamFromApplicants = asyncHandeler(async (req, res, next) => {
 });
 
 export const getBuildTeamDevelopers = asyncHandeler(async (req, res, next) => {
-  const roleError = ensureCompanyRole(req, next);
+  const roleError = ensureCompanyOrClientRole(req, next);
   if (roleError) return;
 
   const {
@@ -1299,7 +1307,7 @@ export const getBuildTeamDevelopers = asyncHandeler(async (req, res, next) => {
 });
 
 export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
-  const roleError = ensureCompanyRole(req, next);
+  const roleError = ensureCompanyOrClientRole(req, next);
   if (roleError) return;
 
   const {
@@ -1607,7 +1615,7 @@ export const getCompanyApplicantsList = asyncHandeler(async (req, res, next) => 
 });
 
 export const getDeveloperProfileForCompany = asyncHandeler(async (req, res, next) => {
-  const roleError = ensureCompanyRole(req, next);
+  const roleError = ensureCompanyOrClientRole(req, next);
   if (roleError) return;
 
   const { developerId } = req.params;
