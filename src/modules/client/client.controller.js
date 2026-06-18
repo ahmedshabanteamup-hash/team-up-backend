@@ -52,6 +52,27 @@ router.get(
 );
 
 router.get(
+  "/job/:jobId/applicants",
+  authentication(),
+  validation(projectValidators.myJobApplicantsQuery),
+  projectService.getMyJobApplicants
+);
+
+router.post(
+  "/job/:jobId/build-team",
+  authentication(),
+  validation(projectValidators.buildTeamFromApplicants),
+  projectService.buildTeamFromMyJobApplicants
+);
+
+router.patch(
+  "/job/:jobId/applicants/:applicationId/status",
+  authentication(),
+  validation(projectValidators.updateApplicantStatus),
+  projectService.updateMyJobApplicantStatus
+);
+
+router.get(
   "/jobs/my-posts/:jobId",
   authentication(),
   validation(projectValidators.jobIdParam),

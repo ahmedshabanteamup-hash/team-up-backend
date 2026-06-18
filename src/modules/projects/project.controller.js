@@ -195,6 +195,13 @@ router.get(
   projectService.getMyJobApplicants
 );
 
+router.post(
+  "/jobs/my-posts/:jobId/build-team",
+  authentication(),
+  validation(validators.buildTeamFromApplicants),
+  projectService.buildTeamFromMyJobApplicants
+);
+
 router.patch(
   "/jobs/my-posts/:jobId/applicants/:applicationId/status",
   authentication(),

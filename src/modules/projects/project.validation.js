@@ -201,3 +201,14 @@ export const updateApplicantStatus = {
     status: joi.string().valid("accepted", "rejected").required(),
   }),
 };
+
+export const buildTeamFromApplicants = {
+  params: joi.object({
+    jobId: generalFields.id.required(),
+  }),
+  body: joi.object({
+    applicationIds: joi.array().items(generalFields.id).min(1).optional(),
+    closeJob: joi.boolean().optional(),
+    projectTitle: joi.string().min(2).max(150).allow("").optional(),
+  }),
+};

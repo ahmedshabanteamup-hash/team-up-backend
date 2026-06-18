@@ -169,6 +169,32 @@ const formatJobPostPayload = (job) => ({
 
 const mapJobStatusLabel = (status) => (status === "closed" ? "Closed" : "Open");
 
+const formatJobTypeLabel = (job = {}) => {
+  if (job.type === "full-time" || job.workType === "full-time") return "Full-Time";
+  if (job.type === "part-time") return "Part-Time";
+  return "Contract";
+};
+
+const formatBudgetLabel = (job = {}) => {
+  if (job.budgetMin && job.budgetMax) return `$${job.budgetMin} - $${job.budgetMax}`;
+  if (job.budget) return `$${job.budget}`;
+  if (job.budgetMin) return `From $${job.budgetMin}`;
+  if (job.budgetMax) return `Up to $${job.budgetMax}`;
+  return "Not specified";
+};
+
+const formatApplicantStatusLabel = (status = "") => {
+  const labels = {
+    pending: "New",
+    shortlisted: "Shortlisted",
+    interviewed: "Interviewed",
+    accepted: "Accepted",
+    rejected: "Rejected",
+  };
+
+  return labels[status] || status;
+};
+
 const formatMyJobCard = (job) => ({
   jobId: job._id,
   title: job.title,
@@ -1222,25 +1248,95 @@ export const getMyJobPostDetails = asyncHandeler(async (req, res, next) => {
 
   if (!job) return;
 
+  const applications = await applicationModel
+    .find({ job: jobId, company: req.user._id })
+    .populate([{ path: "developer", select: "email" }])
+    .sort({ createdAt: -1 })
+    .limit(4);
+
+  const developerIds = applications.map((item) => item.developer?._id).filter(Boolean);
+  const profiles = await developerModel.find({ user: { $in: developerIds } });
+  const profileMap = new Map(profiles.map((profile) => [String(profile.user), profile]));
+
+  const applicants = applications.map((item) => {
+    const developerId = String(item.developer?._id || "");
+    const profile = profileMap.get(developerId);
+
+    return {
+      applicationId: item._id,
+      developerId: item.developer?._id || null,
+      name: profile?.fullName || "Unknown Developer",
+      title: profile?.title || "",
+      profilePicture: profile?.profilePicture?.url || "",
+      status: item.status,
+      statusLabel: formatApplicantStatusLabel(item.status),
+      proposedBudget: item.proposedBudget,
+      appliedAt: item.createdAt,
+      skills: profile?.skills || [],
+      actions: {
+        viewProfile: `/client/developers/${item.developer?._id || ""}/profile`,
+        updateStatus: `/client/job/${job._id}/applicants/${item._id}/status`,
+      },
+    };
+  });
+
   return successResponse({
     res,
     message: "job details fetched successfully",
     data: {
+      header: {
+        title: job.title,
+        status: job.status,
+        statusLabel: job.status === "active" ? "Active" : mapJobStatusLabel(job.status),
+        postedAt: job.createdAt,
+      },
+      summaryCards: {
+        salary: formatBudgetLabel(job),
+        location: job.location || job.workMode || "",
+        type: formatJobTypeLabel(job),
+        deadline: job.deadline || null,
+      },
       jobInfo: {
         jobId: job._id,
         title: job.title,
         description: job.description,
+        requirements: job.requirements || "",
         skills: job.skills || [],
+        budget: job.budget,
+        budgetMin: job.budgetMin,
+        budgetMax: job.budgetMax,
+        salaryLabel: formatBudgetLabel(job),
+        location: job.location || job.workMode || "",
+        workMode: job.workMode,
+        type: job.type,
+        typeLabel: formatJobTypeLabel(job),
+        workType: job.workType,
+        deadline: job.deadline,
+        postedAt: job.createdAt,
+        estimatedDuration: job.estimatedDuration || "",
+        teamSize: job.teamSize,
       },
       stats: {
         numberOfApplicants: job.applicationsCount || 0,
         status: job.status,
         statusLabel: mapJobStatusLabel(job.status),
       },
+      applicants: {
+        total: job.applicationsCount || applicants.length,
+        preview: applicants,
+        actions: {
+          viewAll: `/client/job/${job._id}/applicants`,
+          buildTeamFromApplicants: `/client/job/${job._id}/build-team`,
+        },
+      },
       actions: {
         canViewApplicants: true,
         canCloseJob: true,
         canEditJob: true,
+        viewApplicants: `/client/job/${job._id}/applicants`,
+        buildTeamFromApplicants: `/client/job/${job._id}/build-team`,
+        closeJob: `/client/jobs/my-posts/${job._id}/close`,
+        editJob: `/client/jobs/my-posts/${job._id}`,
       },
     },
   });
@@ -1462,6 +1558,136 @@ export const getMyJobApplicants = asyncHandeler(async (req, res, next) => {
         limit,
         totalCount,
         totalPages: Math.ceil(totalCount / limit) || 1,
+      },
+    },
+  });
+});
+
+export const buildTeamFromMyJobApplicants = asyncHandeler(async (req, res, next) => {
+  if (!assertClientRole({ req, next, actionLabel: "build team from applicants" })) {
+    return;
+  }
+
+  const { jobId } = req.params;
+  const { applicationIds = [], closeJob = true, projectTitle = "" } = req.body;
+
+  const job = await getClientJobOrThrow({
+    jobId,
+    userId: req.user._id,
+    next,
+  });
+
+  if (!job) return;
+
+  const filter = {
+    job: jobId,
+    company: req.user._id,
+    ...(applicationIds.length
+      ? { _id: { $in: applicationIds } }
+      : { status: { $in: ["shortlisted", "interviewed", "accepted"] } }),
+  };
+
+  const selectedApplications = await applicationModel
+    .find(filter)
+    .populate([{ path: "developer", select: "email" }]);
+
+  if (!selectedApplications.length) {
+    return next(new Error("no selected applicants found", { cause: 404 }));
+  }
+
+  const selectedApplicationIds = selectedApplications.map((item) => item._id);
+  await applicationModel.updateMany(
+    { _id: { $in: selectedApplicationIds }, job: jobId, company: req.user._id },
+    { status: "accepted" }
+  );
+
+  if (closeJob) {
+    await dbService.findOneAndUpdate({
+      model: jobModel,
+      filter: { _id: jobId, company: req.user._id },
+      data: { status: "closed" },
+    });
+  }
+
+  const developerIds = selectedApplications
+    .map((application) => application.developer?._id)
+    .filter(Boolean);
+
+  const profiles = await developerModel.find({ user: { $in: developerIds } });
+  const profileMap = new Map(profiles.map((profile) => [String(profile.user), profile]));
+
+  const teamMembers = selectedApplications.map((application) => {
+    const developerId = String(application.developer?._id || "");
+    const profile = profileMap.get(developerId);
+
+    return {
+      user: application.developer?._id,
+      name: profile?.fullName || "Unknown Developer",
+      role: profile?.title || "Developer",
+      level: profile?.experienceLevel || "mid",
+      status: profile?.isOnline ? "online" : "offline",
+    };
+  });
+
+  const [project] = await dbService.create({
+    model: projectModel,
+    data: [
+      {
+        client: req.user._id,
+        clientName: req.user.email || "Client",
+        title: projectTitle || job.title,
+        description: job.description || "",
+        requiredSkills: job.skills || [],
+        developerRole: "Team",
+        deadline: job.deadline || null,
+        currentStage: "Team Confirmed",
+        teamMembers,
+        teamSize: teamMembers.length,
+        activities: [
+          {
+            type: "team",
+            title: "Team built from applicants",
+            details: `Approved ${teamMembers.length} applicants for ${job.title}.`,
+            actorName: req.user.email || "Client",
+          },
+        ],
+      },
+    ],
+  });
+
+  return successResponse({
+    res,
+    status: 201,
+    message: "team built from applicants successfully",
+    data: {
+      project: {
+        projectId: project._id,
+        title: project.title,
+        teamSize: project.teamSize,
+        status: project.status,
+      },
+      job: {
+        jobId: job._id,
+        title: job.title,
+        status: closeJob ? "closed" : job.status,
+      },
+      teamMembers: selectedApplications.map((application) => {
+        const developerId = String(application.developer?._id || "");
+        const profile = profileMap.get(developerId);
+
+        return {
+          applicationId: application._id,
+          developerId: application.developer?._id || null,
+          name: profile?.fullName || "Unknown Developer",
+          title: profile?.title || "Developer",
+          email: application.developer?.email || "",
+          skills: profile?.skills || [],
+          status: "accepted",
+        };
+      }),
+      totalMembers: teamMembers.length,
+      actions: {
+        projectDetails: `/projects/${project._id}`,
       },
     },
   });
