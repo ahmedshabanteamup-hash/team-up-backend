@@ -1,4 +1,5 @@
 import { companyModel } from "../../DB/models/company.model.js";
+import { clientModel } from "../../DB/models/client.model.js";
 import { jobModel } from "../../DB/models/jop.model.js";
 import { interviewModel } from "../../DB/models/interview.model.js";
 import { applicationModel } from "../../DB/models/application.model.js";
@@ -23,6 +24,24 @@ const ensureCompanyOrClientRole = (req, next) => {
   }
 
   return null;
+};
+
+const getTeamBuilderOwnerProfile = async (user) => {
+  if (user.role === roleEnum.company) {
+    const profile = await companyModel.findOne({ user: user._id });
+    return {
+      ownerName: profile?.companyName || user.email || "Company",
+      ownerType: "company",
+      profile,
+    };
+  }
+
+  const profile = await clientModel.findOne({ user: user._id });
+  return {
+    ownerName: profile?.fullName || user.email || "Client",
+    ownerType: "client",
+    profile,
+  };
 };
 
 const getOwnedJobOrThrow = async ({ companyId, jobId, next }) => {
@@ -1293,8 +1312,8 @@ export const getBuildTeamDevelopers = asyncHandeler(async (req, res, next) => {
       selectedTeam,
       selectedCount: selectedTeam.length,
       actions: {
-        confirmTeam: "/company/team-builder/confirm",
-        viewProfile: "/company/developers/:developerId/profile",
+        confirmTeam: `/${req.user.role}/team-builder/confirm`,
+        viewProfile: `/${req.user.role}/developers/:developerId/profile`,
       },
       pagination: {
         page: pageNumber,
@@ -1320,9 +1339,9 @@ export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
 
   const uniqueDeveloperIds = [...new Set(developerIds.map(String))];
 
-  const [profiles, companyProfile] = await Promise.all([
+  const [profiles, ownerProfile] = await Promise.all([
     developerModel.find({ user: { $in: uniqueDeveloperIds } }),
-    companyModel.findOne({ user: req.user._id }),
+    getTeamBuilderOwnerProfile(req.user),
   ]);
 
   if (profiles.length !== uniqueDeveloperIds.length) {
@@ -1336,7 +1355,7 @@ export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
   }
 
   const finalProjectTitle =
-    projectTitle || job?.title || `${companyProfile?.companyName || "Company"} Team`;
+    projectTitle || job?.title || `${ownerProfile.ownerName} Team`;
 
   if (!finalProjectTitle) {
     return next(new Error("projectTitle is required when jobId is not provided", { cause: 400 }));
@@ -1381,7 +1400,7 @@ export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
     data: [
       {
         client: req.user._id,
-        clientName: companyProfile?.companyName || req.user.email || "Company",
+        clientName: ownerProfile.ownerName,
         title: finalProjectTitle,
         description: description || job?.description || "",
         requiredSkills: job?.skills || [],
@@ -1395,7 +1414,7 @@ export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
             type: "team",
             title: "Team confirmed",
             details: `${teamMembers.length} developers were selected for the team.`,
-            actorName: companyProfile?.companyName || req.user.email || "Company",
+            actorName: ownerProfile.ownerName,
           },
         ],
       },
@@ -1429,6 +1448,10 @@ export const confirmManualTeam = asyncHandeler(async (req, res, next) => {
         availability: profile.availability || "available",
       })),
       totalMembers: profiles.length,
+      owner: {
+        type: ownerProfile.ownerType,
+        name: ownerProfile.ownerName,
+      },
       actions: {
         projectDetails: `/projects/${project._id}`,
         viewTeamMemberProfile: `/projects/${project._id}/team-members/:memberUserId/profile`,
@@ -1686,8 +1709,9 @@ export const getDeveloperProfileForCompany = asyncHandeler(async (req, res, next
           }
         : null,
       actions: {
-        scheduleInterview: "/company/interviews",
-        reject: latestApplication
+        scheduleInterview:
+          req.user.role === roleEnum.company ? "/company/interviews" : null,
+        reject: req.user.role === roleEnum.company && latestApplication
           ? `/company/applications/${latestApplication._id}/status`
           : null,
       },
